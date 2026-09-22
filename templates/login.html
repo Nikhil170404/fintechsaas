@@ -186,6 +186,7 @@
     {% endwith %}
 
     <form method="POST">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <div class="mb-3">
         <label class="form-label" for="username">Username</label>
         <div class="input-group">
@@ -215,15 +216,14 @@
       </button>
     </form>
 
-    {% if first_run %}
+    <div class="login-footer">
+      <a href="{{ url_for('forgot_password') }}" style="color:#2e6db4;text-decoration:none;">Forgot password?</a>
+    </div>
+
+    {% if no_accounts_yet %}
     <div class="first-run-box">
       <i class="fa-solid fa-circle-info me-2" style="color:#d97706"></i>
-      <strong>First time setup:</strong> default username is <strong>admin</strong> and password is <strong>admin123</strong>.
-      Please change your password in <strong>Settings → Security</strong> after signing in.
-    </div>
-    {% else %}
-    <div class="login-footer">
-      <i class="fa-solid fa-lock fa-xs me-1"></i> Secure login
+      <strong>No account yet.</strong> <a href="{{ url_for('signup') }}" style="color:#92400e;font-weight:700;">Create your company account</a> to get started.
     </div>
     {% endif %}
 

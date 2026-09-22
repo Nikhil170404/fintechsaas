@@ -17,10 +17,14 @@
   <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-smtp"><i class="fa-solid fa-server me-1"></i>SMTP</button></li>
   <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-email"><i class="fa-solid fa-envelope me-1"></i>Email Template</button></li>
   <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-security"><i class="fa-solid fa-lock me-1"></i>Security</button></li>
+  {% if session.get('role') == 'owner' %}
+  <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-team"><i class="fa-solid fa-users me-1"></i>Team</button></li>
+  {% endif %}
 </ul>
 
-<form method="POST" id="settingsForm">
 <div class="tab-content">
+<form method="POST" id="settingsForm">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
   <!-- ══ Branding ══ -->
   <div class="tab-pane fade show active" id="tab-branding">
@@ -96,12 +100,12 @@
               <small class="text-muted">Gmail: smtp.gmail.com &bull; Outlook: smtp.office365.com &bull; Zoho: smtp.zoho.in</small>
             </div>
             <div class="row g-2">
-              <div class="col-4">
+              <div class="col-12 col-sm-4">
                 <label class="form-label fw-semibold">Port</label>
                 <input type="number" name="smtp_port" class="form-control" value="{{ cfg.smtp_port }}" placeholder="587">
                 <small class="text-muted">587 (TLS) or 465 (SSL)</small>
               </div>
-              <div class="col-8">
+              <div class="col-12 col-sm-8">
                 <label class="form-label fw-semibold">Email / Username</label>
                 <input type="email" name="smtp_user" class="form-control" value="{{ cfg.smtp_user }}" placeholder="you@company.com">
               </div>
@@ -217,8 +221,8 @@
       <div class="card-header fw-semibold"><i class="fa-solid fa-lock me-2 text-warning"></i>Admin Account</div>
       <div class="card-body">
         <div class="mb-3">
-          <label class="form-label fw-semibold">Admin Username</label>
-          <input type="text" name="admin_username" class="form-control" value="{{ cfg.admin_username or 'admin' }}" autocomplete="username">
+          <label class="form-label fw-semibold">Username</label>
+          <input type="text" name="admin_username" class="form-control" value="{{ session.get('username', '') }}" autocomplete="username">
         </div>
         <div class="mb-3">
           <label class="form-label fw-semibold">New Password <small class="text-muted">(leave blank to keep current)</small></label>
@@ -251,8 +255,77 @@
     </div>
   </div>
 
-</div>
 </form>
+
+  {% if session.get('role') == 'owner' %}
+  <!-- ══ Team ══ -->
+  <div class="tab-pane fade" id="tab-team">
+    <div class="row g-4">
+      <div class="col-lg-7">
+        <div class="card shadow-sm">
+          <div class="card-header fw-semibold"><i class="fa-solid fa-users me-2 text-primary"></i>Staff Accounts</div>
+          <div class="card-body p-0">
+            <div class="table-responsive">
+            <table class="table table-hover mb-0">
+              <thead>
+                <tr><th>Username</th><th>Email</th><th>Role</th><th></th></tr>
+              </thead>
+              <tbody>
+                {% for u in team %}
+                <tr>
+                  <td>{{ u.username }}</td>
+                  <td>{{ u.email }}</td>
+                  <td><span class="badge {{ 'bg-primary' if u.role == 'owner' else 'bg-secondary' }}">{{ u.role }}</span></td>
+                  <td class="text-end">
+                    {% if u.id != session.get('user_id') %}
+                    <form method="POST" action="{{ url_for('team_remove', user_id=u.id) }}" class="d-inline"
+                          onsubmit="return confirm('Remove {{ u.username }}?');">
+                      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                      <button class="btn btn-outline-danger btn-sm"><i class="fa-solid fa-user-minus"></i></button>
+                    </form>
+                    {% else %}
+                    <span class="text-muted small">(you)</span>
+                    {% endif %}
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-5">
+        <div class="card shadow-sm">
+          <div class="card-header fw-semibold"><i class="fa-solid fa-user-plus me-2 text-success"></i>Add Staff Member</div>
+          <div class="card-body">
+            <form method="POST" action="{{ url_for('team_add') }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <div class="mb-3">
+                <label class="form-label fw-semibold">Username</label>
+                <input type="text" name="username" class="form-control" required>
+              </div>
+              <div class="mb-3">
+                <label class="form-label fw-semibold">Email</label>
+                <input type="email" name="email" class="form-control" required>
+              </div>
+              <div class="mb-3">
+                <label class="form-label fw-semibold">Temporary Password</label>
+                <input type="password" name="password" class="form-control" minlength="8" required>
+                <small class="text-muted">Staff can change this later from their own Settings.</small>
+              </div>
+              <button type="submit" class="btn btn-success">
+                <i class="fa-solid fa-user-plus me-2"></i>Add Staff Member
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+</div>
 
 <!-- Preview modal -->
 <div class="modal fade" id="previewModal" tabindex="-1">
@@ -472,5 +545,15 @@ async function loadAuditLog() {
 // Load audit log when Security tab becomes visible
 document.querySelector('[data-bs-target="#tab-security"]')?.addEventListener('shown.bs.tab', loadAuditLog);
 document.getElementById('refreshAuditBtn')?.addEventListener('click', loadAuditLog);
+
+// ── Restore active tab from ?tab= query param (used after Team add/remove redirects) ──
+(function() {
+  const params = new URLSearchParams(window.location.search);
+  const tab = params.get('tab');
+  if (tab) {
+    const btn = document.querySelector(`[data-bs-target="#tab-${tab}"]`);
+    if (btn) new bootstrap.Tab(btn).show();
+  }
+})();
 </script>
 {% endblock %}

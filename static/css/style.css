@@ -851,6 +851,16 @@ h1, h2, h3, h4, h5, h6 {
 .nav-tabs {
   border-bottom: 2px solid var(--border);
   gap: .25rem;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}
+
+.nav-tabs .nav-link {
+  white-space: nowrap;
+  flex: 0 0 auto;
 }
 
 .nav-tabs .nav-link {
