@@ -2,38 +2,68 @@
 {% block title %}Upload Excel – FinTech SaaS{% endblock %}
 
 {% block content %}
-<div class="page-header">
-  <h1><i class="fa-solid fa-file-excel me-2 text-success"></i>Upload Client Data</h1>
-  <p class="text-muted">Upload your Excel workbook with client master &amp; transactions</p>
+
+<div class="page-header d-flex align-items-center justify-content-between flex-wrap gap-2">
+  <div>
+    <h1><i class="fa-solid fa-file-excel me-2" style="color:#16a34a"></i>Upload Client Data</h1>
+    <p class="subtitle">Step 1 — import your Excel file to get started</p>
+  </div>
+  <a href="{{ url_for('download_template') }}" class="btn btn-outline-secondary" target="_blank">
+    <i class="fa-solid fa-download"></i> Download Sample Template
+  </a>
+</div>
+
+<div class="help-box mb-4">
+  <i class="fa-solid fa-circle-info help-icon"></i>
+  <div>
+    <strong>How this works:</strong> Upload an Excel file (.xlsx) that has two sheets:
+    <ol class="mb-0 mt-1">
+      <li><strong>Clients</strong> — one row per client with their name, email, account number</li>
+      <li><strong>Transactions</strong> — each row is a transaction linked by the account number</li>
+    </ol>
+    Not sure about the format? <a href="{{ url_for('download_template') }}" class="fw-semibold">Download the sample template</a> — it has 3 example clients ready to go.
+  </div>
 </div>
 
 <div class="row g-4">
+
   <!-- Upload form -->
   <div class="col-lg-7">
-    <div class="card shadow-sm">
-      <div class="card-header fw-semibold">
-        <i class="fa-solid fa-upload me-2"></i>Upload Excel File
+    <div class="card">
+      <div class="card-header">
+        <i class="fa-solid fa-cloud-arrow-up" style="color:var(--brand-500)"></i>
+        Upload Your Excel File
       </div>
       <div class="card-body">
         <form method="POST" enctype="multipart/form-data" id="uploadForm">
-          <div class="drop-zone" id="dropZone">
-            <i class="fa-solid fa-cloud-arrow-up drop-icon"></i>
-            <p class="drop-text">Drag &amp; drop your Excel file here</p>
-            <p class="text-muted small">or</p>
-            <label class="btn btn-primary btn-sm">
-              Browse Files
+          <div class="drop-zone" id="dropZone" role="button" tabindex="0">
+            <i class="fa-solid fa-cloud-arrow-up drop-icon" id="dropIcon"></i>
+            <div class="drop-title" id="dropTitle">Drag &amp; drop your Excel file here</div>
+            <div class="drop-hint mt-1">or click to browse — accepts .xlsx and .xls</div>
+            <label class="btn btn-outline-primary btn-sm mt-3" id="browseLabel">
+              <i class="fa-solid fa-folder-open"></i> Browse Files
               <input type="file" name="excel_file" id="fileInput" accept=".xlsx,.xls" hidden required>
             </label>
-            <p class="text-muted small mt-2">Accepted: .xlsx, .xls</p>
           </div>
-          <div id="filePreview" class="file-preview d-none mt-3">
-            <i class="fa-solid fa-file-excel text-success me-2"></i>
-            <span id="fileName"></span>
-            <span class="badge bg-success ms-2">Ready</span>
+
+          <div id="filePreview" class="file-preview d-none">
+            <i class="fa-solid fa-file-excel text-success fs-5"></i>
+            <div class="flex-grow-1">
+              <div class="fw-semibold" id="fileName"></div>
+              <div class="text-muted" style="font-size:.8rem">Ready to upload</div>
+            </div>
+            <span class="badge bg-success">Selected</span>
+            <button type="button" class="btn btn-sm btn-outline-secondary" id="clearFile">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
           </div>
-          <button type="submit" class="btn btn-success w-100 mt-3" id="uploadBtn">
-            <i class="fa-solid fa-upload me-2"></i>Upload &amp; Parse
+
+          <button type="submit" class="btn btn-success w-100 mt-3 btn-lg" id="uploadBtn">
+            <i class="fa-solid fa-upload"></i> Upload &amp; Process File
           </button>
+          <div class="form-hint justify-content-center mt-2">
+            <i class="fa-solid fa-shield-halved"></i> Your file is processed securely and stored only on this server
+          </div>
         </form>
       </div>
     </div>
@@ -41,50 +71,82 @@
 
   <!-- Format guide -->
   <div class="col-lg-5">
-    <div class="card shadow-sm mb-3">
-      <div class="card-header fw-semibold">
-        <i class="fa-solid fa-table me-2 text-primary"></i>Required Format
+
+    <div class="card mb-3">
+      <div class="card-header">
+        <i class="fa-solid fa-table" style="color:var(--brand-500)"></i>
+        Required Excel Format
       </div>
       <div class="card-body p-0">
+
         <div class="p-3 border-bottom">
-          <span class="badge bg-success mb-2">Sheet: Clients</span>
-          <table class="table table-sm table-bordered mb-0 small">
-            <tr class="table-dark"><th>Account No</th><th>Client Name</th><th>Email</th><th>…</th></tr>
-            <tr><td>ACC001</td><td>Rahul Sharma</td><td>rahul@…</td><td>…</td></tr>
+          <div class="d-flex align-items-center gap-2 mb-2">
+            <span class="badge bg-success">Sheet 1</span>
+            <span class="fw-semibold">Clients</span>
+          </div>
+          <table class="table table-sm table-bordered mb-0" style="font-size:.8rem">
+            <thead class="table-dark">
+              <tr><th>Account No</th><th>Client Name</th><th>Email</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>ACC001</td><td>Rahul Sharma</td><td>rahul@mail.com</td></tr>
+              <tr class="text-muted"><td colspan="3" style="font-size:.75rem">… more rows</td></tr>
+            </tbody>
           </table>
         </div>
+
         <div class="p-3">
-          <span class="badge bg-primary mb-2">Sheet: Transactions</span>
-          <table class="table table-sm table-bordered mb-0 small">
-            <tr class="table-dark"><th>Account No</th><th>Date</th><th>Debit</th><th>Credit</th><th>Balance</th></tr>
-            <tr><td>ACC001</td><td>01-Aug</td><td>—</td><td>60000</td><td>60000</td></tr>
-            <tr><td>ACC001</td><td>05-Aug</td><td>5000</td><td>—</td><td>55000</td></tr>
+          <div class="d-flex align-items-center gap-2 mb-2">
+            <span class="badge bg-primary">Sheet 2</span>
+            <span class="fw-semibold">Transactions</span>
+          </div>
+          <table class="table table-sm table-bordered mb-0" style="font-size:.8rem">
+            <thead class="table-dark">
+              <tr><th>Account No</th><th>Date</th><th>Debit</th><th>Credit</th><th>Balance</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>ACC001</td><td>01-Aug</td><td>—</td><td>60,000</td><td>60,000</td></tr>
+              <tr><td>ACC001</td><td>05-Aug</td><td>5,000</td><td>—</td><td>55,000</td></tr>
+              <tr class="text-muted"><td colspan="5" style="font-size:.75rem">… more rows</td></tr>
+            </tbody>
           </table>
+          <div class="form-hint mt-2">
+            <i class="fa-solid fa-circle-info"></i>
+            Account No must match exactly between the two sheets
+          </div>
         </div>
+
       </div>
     </div>
 
-    <div class="card shadow-sm">
-      <div class="card-body text-center">
-        <p class="text-muted mb-3">Don't have a template yet?</p>
-        <a href="{{ url_for('download_template') }}" class="btn btn-outline-primary">
-          <i class="fa-solid fa-download me-2"></i>Download Sample Excel Template
+    <div class="card">
+      <div class="card-body text-center py-4">
+        <div class="mb-3" style="font-size:2.25rem;color:#16a34a">
+          <i class="fa-solid fa-file-excel"></i>
+        </div>
+        <div class="fw-bold mb-1">Don't have the file ready?</div>
+        <p class="text-muted small mb-3">Download our sample template — it has the correct format with 3 example clients already filled in.</p>
+        <a href="{{ url_for('download_template') }}" class="btn btn-success" target="_blank">
+          <i class="fa-solid fa-download"></i> Download Sample Template
         </a>
-        <p class="text-muted small mt-2">Includes 3 sample clients with transactions</p>
       </div>
     </div>
+
   </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
-const dropZone = document.getElementById('dropZone');
-const fileInput = document.getElementById('fileInput');
+const dropZone   = document.getElementById('dropZone');
+const fileInput  = document.getElementById('fileInput');
 const filePreview = document.getElementById('filePreview');
-const fileName = document.getElementById('fileName');
+const dropTitle  = document.getElementById('dropTitle');
+const dropIcon   = document.getElementById('dropIcon');
+const browseLabel = document.getElementById('browseLabel');
+const clearBtn   = document.getElementById('clearFile');
 
-dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragover',  e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
 dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
 dropZone.addEventListener('drop', e => {
   e.preventDefault();
@@ -92,13 +154,31 @@ dropZone.addEventListener('drop', e => {
   const file = e.dataTransfer.files[0];
   if (file) { fileInput.files = e.dataTransfer.files; showFile(file.name); }
 });
-fileInput.addEventListener('change', () => {
-  if (fileInput.files[0]) showFile(fileInput.files[0].name);
-});
+dropZone.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') fileInput.click(); });
+fileInput.addEventListener('change', () => { if (fileInput.files[0]) showFile(fileInput.files[0].name); });
+
 function showFile(name) {
-  fileName.textContent = name;
+  document.getElementById('fileName').textContent = name;
   filePreview.classList.remove('d-none');
   dropZone.classList.add('has-file');
+  dropTitle.textContent = 'File selected — ready to upload';
+  dropIcon.className = 'fa-solid fa-circle-check drop-icon';
+  browseLabel.classList.add('d-none');
 }
+
+clearBtn?.addEventListener('click', () => {
+  fileInput.value = '';
+  filePreview.classList.add('d-none');
+  dropZone.classList.remove('has-file');
+  dropTitle.textContent = 'Drag & drop your Excel file here';
+  dropIcon.className = 'fa-solid fa-cloud-arrow-up drop-icon';
+  browseLabel.classList.remove('d-none');
+});
+
+document.getElementById('uploadForm').addEventListener('submit', () => {
+  const btn = document.getElementById('uploadBtn');
+  btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Uploading…';
+  btn.disabled = true;
+});
 </script>
 {% endblock %}

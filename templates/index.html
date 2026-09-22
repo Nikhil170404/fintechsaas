@@ -2,44 +2,69 @@
 {% block title %}Dashboard – FinTech SaaS{% endblock %}
 
 {% block content %}
-<div class="page-header">
-  <h1><i class="fa-solid fa-gauge-high me-2 text-primary"></i>Dashboard</h1>
-  <p class="text-muted">Client statement generation &amp; email dispatch system</p>
+
+<!-- Welcome banner -->
+<div class="guide-banner mb-4">
+  <div class="guide-icon"><i class="fa-solid fa-rocket"></i></div>
+  <div class="flex-grow-1">
+    <div class="guide-title">Welcome to FinTech SaaS — your all-in-one finance document system</div>
+    <div class="guide-steps mt-2">
+      <span class="guide-step-pill {{ 'done' if client_count > 0 else '' }}">
+        <i class="fa-solid fa-{{ 'check' if client_count > 0 else '1' }} me-1"></i>Upload Clients
+      </span>
+      <i class="fa-solid fa-chevron-right" style="opacity:.5;font-size:.75rem;align-self:center"></i>
+      <span class="guide-step-pill {{ 'done' if pdf_count > 0 else '' }}">
+        <i class="fa-solid fa-{{ 'check' if pdf_count > 0 else '2' }} me-1"></i>Generate PDFs
+      </span>
+      <i class="fa-solid fa-chevron-right" style="opacity:.5;font-size:.75rem;align-self:center"></i>
+      <span class="guide-step-pill {{ 'done' if emails_sent > 0 else '' }}">
+        <i class="fa-solid fa-{{ 'check' if emails_sent > 0 else '3' }} me-1"></i>Send Emails
+      </span>
+    </div>
+  </div>
 </div>
 
-<!-- Stats -->
+<!-- Stats row -->
 <div class="row g-3 mb-4">
-  <div class="col-sm-6 col-lg-3">
+  <div class="col-6 col-lg-3">
     <div class="stat-card">
-      <div class="stat-icon bg-primary-soft text-primary"><i class="fa-solid fa-users"></i></div>
-      <div class="stat-body">
+      <div class="stat-icon bg-blue-soft" style="color:#1d4ed8">
+        <i class="fa-solid fa-users"></i>
+      </div>
+      <div>
         <div class="stat-value">{{ client_count }}</div>
         <div class="stat-label">Clients Loaded</div>
       </div>
     </div>
   </div>
-  <div class="col-sm-6 col-lg-3">
+  <div class="col-6 col-lg-3">
     <div class="stat-card">
-      <div class="stat-icon bg-success-soft text-success"><i class="fa-solid fa-file-pdf"></i></div>
-      <div class="stat-body">
+      <div class="stat-icon bg-green-soft" style="color:#16a34a">
+        <i class="fa-solid fa-file-pdf"></i>
+      </div>
+      <div>
         <div class="stat-value">{{ pdf_count }}</div>
         <div class="stat-label">PDFs Generated</div>
       </div>
     </div>
   </div>
-  <div class="col-sm-6 col-lg-3">
+  <div class="col-6 col-lg-3">
     <div class="stat-card">
-      <div class="stat-icon bg-warning-soft text-warning"><i class="fa-solid fa-envelope"></i></div>
-      <div class="stat-body">
+      <div class="stat-icon bg-amber-soft" style="color:#d97706">
+        <i class="fa-solid fa-envelope"></i>
+      </div>
+      <div>
         <div class="stat-value">{{ emails_sent }}</div>
         <div class="stat-label">Emails Sent</div>
       </div>
     </div>
   </div>
-  <div class="col-sm-6 col-lg-3">
+  <div class="col-6 col-lg-3">
     <div class="stat-card">
-      <div class="stat-icon bg-info-soft text-info"><i class="fa-solid fa-file-invoice-dollar"></i></div>
-      <div class="stat-body">
+      <div class="stat-icon bg-purple-soft" style="color:#7c3aed">
+        <i class="fa-solid fa-file-invoice-dollar"></i>
+      </div>
+      <div>
         <div class="stat-value">{{ invoice_count }}</div>
         <div class="stat-label">Invoices Generated</div>
       </div>
@@ -47,72 +72,198 @@
   </div>
 </div>
 
-<!-- Workflow steps -->
-<div class="card shadow-sm mb-4">
-  <div class="card-header fw-semibold"><i class="fa-solid fa-list-check me-2"></i>How It Works</div>
+<!-- How it works — main workflow -->
+<div class="card mb-4">
+  <div class="card-header">
+    <i class="fa-solid fa-list-check text-primary"></i>
+    How It Works — 3 Easy Steps
+  </div>
   <div class="card-body">
-    <div class="workflow-steps">
-      <div class="step {{ 'done' if client_count > 0 else '' }}">
-        <div class="step-num">1</div>
-        <div class="step-body">
-          <div class="step-title">Upload Excel</div>
-          <div class="step-desc">Import client master + transactions from your Excel file</div>
-          <a href="{{ url_for('upload') }}" class="btn btn-sm btn-outline-primary mt-2">
-            <i class="fa-solid fa-upload me-1"></i>Upload Now
+    <div class="steps-track gap-3">
+
+      <!-- Step 1 -->
+      <div class="step-card {{ 'step-done' if client_count > 0 else 'step-active' if client_count == 0 }}">
+        <div class="d-flex align-items-center gap-2 mb-1">
+          <div class="step-num">
+            {% if client_count > 0 %}<i class="fa-solid fa-check"></i>{% else %}1{% endif %}
+          </div>
+          {% if client_count > 0 %}
+            <span class="badge bg-success">Done</span>
+          {% else %}
+            <span class="badge bg-primary">Start here</span>
+          {% endif %}
+        </div>
+        <div class="step-title">Upload Client Excel</div>
+        <div class="step-desc">Upload your Excel file with client names, account numbers and transactions. We provide a ready-made template — just fill it in.</div>
+        <div class="mt-auto pt-2 d-flex gap-2 flex-wrap">
+          <a href="{{ url_for('upload') }}" class="btn btn-primary btn-sm">
+            <i class="fa-solid fa-upload"></i> Upload Excel
+          </a>
+          <a href="{{ url_for('download_template') }}" class="btn btn-outline-secondary btn-sm" target="_blank">
+            <i class="fa-solid fa-download"></i> Get Template
           </a>
         </div>
       </div>
-      <div class="step-arrow"><i class="fa-solid fa-chevron-right"></i></div>
-      <div class="step {{ 'done' if pdf_count > 0 else '' }}">
-        <div class="step-num">2</div>
-        <div class="step-body">
-          <div class="step-title">Generate PDFs</div>
-          <div class="step-desc">Auto-generate personalized account statements for every client</div>
-          <a href="{{ url_for('clients') }}" class="btn btn-sm btn-outline-success mt-2">
-            <i class="fa-solid fa-file-pdf me-1"></i>Generate
+
+      <div class="step-connector">
+        <i class="fa-solid fa-chevron-right"></i>
+      </div>
+
+      <!-- Step 2 -->
+      <div class="step-card {{ 'step-done' if pdf_count > 0 else ('step-active' if client_count > 0 else '') }}">
+        <div class="d-flex align-items-center gap-2 mb-1">
+          <div class="step-num">
+            {% if pdf_count > 0 %}<i class="fa-solid fa-check"></i>{% else %}2{% endif %}
+          </div>
+          {% if pdf_count > 0 %}
+            <span class="badge bg-success">Done</span>
+          {% elif client_count > 0 %}
+            <span class="badge bg-primary">Next step</span>
+          {% else %}
+            <span class="badge bg-secondary">Waiting</span>
+          {% endif %}
+        </div>
+        <div class="step-title">Generate PDF Statements</div>
+        <div class="step-desc">One click creates a beautiful, branded PDF statement for every client with their full transaction history.</div>
+        <div class="mt-auto pt-2">
+          <a href="{{ url_for('clients') }}" class="btn btn-success btn-sm">
+            <i class="fa-solid fa-file-pdf"></i> Go to Clients
           </a>
         </div>
       </div>
-      <div class="step-arrow"><i class="fa-solid fa-chevron-right"></i></div>
-      <div class="step">
-        <div class="step-num">3</div>
-        <div class="step-body">
-          <div class="step-title">Send Emails</div>
-          <div class="step-desc">Dispatch statements to all clients via email in one click</div>
-          <a href="{{ url_for('clients') }}" class="btn btn-sm btn-outline-warning mt-2">
-            <i class="fa-solid fa-paper-plane me-1"></i>Send
+
+      <div class="step-connector">
+        <i class="fa-solid fa-chevron-right"></i>
+      </div>
+
+      <!-- Step 3 -->
+      <div class="step-card {{ 'step-done' if emails_sent > 0 else ('step-active' if pdf_count > 0 else '') }}">
+        <div class="d-flex align-items-center gap-2 mb-1">
+          <div class="step-num">
+            {% if emails_sent > 0 %}<i class="fa-solid fa-check"></i>{% else %}3{% endif %}
+          </div>
+          {% if emails_sent > 0 %}
+            <span class="badge bg-success">Done</span>
+          {% elif pdf_count > 0 %}
+            <span class="badge bg-primary">Next step</span>
+          {% else %}
+            <span class="badge bg-secondary">Waiting</span>
+          {% endif %}
+        </div>
+        <div class="step-title">Send Emails to All Clients</div>
+        <div class="step-desc">Attach the PDFs and send personalised emails to every client in one shot. Configure your email server in Settings first.</div>
+        <div class="mt-auto pt-2 d-flex gap-2 flex-wrap">
+          <a href="{{ url_for('clients') }}" class="btn btn-warning btn-sm text-dark">
+            <i class="fa-solid fa-paper-plane"></i> Send Emails
+          </a>
+          <a href="{{ url_for('settings') }}" class="btn btn-outline-secondary btn-sm">
+            <i class="fa-solid fa-gear"></i> Configure SMTP
           </a>
         </div>
       </div>
+
     </div>
   </div>
 </div>
 
-<!-- Quick tips -->
+<!-- Quick actions + Tips -->
 <div class="row g-3">
-  <div class="col-md-6">
-    <div class="card shadow-sm h-100">
-      <div class="card-header fw-semibold"><i class="fa-solid fa-lightbulb me-2 text-warning"></i>Quick Tips</div>
-      <ul class="list-group list-group-flush">
-        <li class="list-group-item"><i class="fa-solid fa-check text-success me-2"></i>Download the Excel template to see the required format</li>
-        <li class="list-group-item"><i class="fa-solid fa-check text-success me-2"></i>Keep <strong>Account No</strong> consistent across both sheets</li>
-        <li class="list-group-item"><i class="fa-solid fa-check text-success me-2"></i>Balance column = running balance after each transaction</li>
-        <li class="list-group-item"><i class="fa-solid fa-check text-success me-2"></i>Configure SMTP in Settings before sending emails</li>
-        <li class="list-group-item"><i class="fa-solid fa-check text-success me-2"></i>Upload a Word template to use your own branded design</li>
-      </ul>
+
+  <!-- Quick actions -->
+  <div class="col-lg-5">
+    <div class="card h-100">
+      <div class="card-header">
+        <i class="fa-solid fa-bolt text-warning"></i>
+        Other Documents You Can Generate
+      </div>
+      <div class="card-body d-flex flex-column gap-2">
+        <a href="{{ url_for('invoices') }}" class="quick-card flex-row text-start gap-3">
+          <div class="qc-icon bg-sky-soft" style="color:#0284c7;flex-shrink:0">
+            <i class="fa-solid fa-file-invoice-dollar"></i>
+          </div>
+          <div>
+            <div class="qc-title">GST Invoice</div>
+            <div class="qc-desc">CGST / SGST / IGST compliant invoice with full company branding</div>
+          </div>
+          <i class="fa-solid fa-chevron-right ms-auto text-muted align-self-center"></i>
+        </a>
+
+        <a href="{{ url_for('loans') }}" class="quick-card flex-row text-start gap-3">
+          <div class="qc-icon bg-green-soft" style="color:#16a34a;flex-shrink:0">
+            <i class="fa-solid fa-hand-holding-dollar"></i>
+          </div>
+          <div>
+            <div class="qc-title">Loan / EMI Schedule</div>
+            <div class="qc-desc">Full amortization schedule showing principal, interest &amp; balance</div>
+          </div>
+          <i class="fa-solid fa-chevron-right ms-auto text-muted align-self-center"></i>
+        </a>
+
+        <a href="{{ url_for('portfolio') }}" class="quick-card flex-row text-start gap-3">
+          <div class="qc-icon bg-purple-soft" style="color:#7c3aed;flex-shrink:0">
+            <i class="fa-solid fa-chart-pie"></i>
+          </div>
+          <div>
+            <div class="qc-title">Portfolio Statement</div>
+            <div class="qc-desc">Investment holdings with current value, returns and asset allocation</div>
+          </div>
+          <i class="fa-solid fa-chevron-right ms-auto text-muted align-self-center"></i>
+        </a>
+
+        <a href="{{ url_for('template_designer') }}" class="quick-card flex-row text-start gap-3">
+          <div class="qc-icon bg-rose-soft" style="color:#e11d48;flex-shrink:0">
+            <i class="fa-solid fa-wand-magic-sparkles"></i>
+          </div>
+          <div>
+            <div class="qc-title">Template Designer</div>
+            <div class="qc-desc">Import a Word doc or paste HTML and merge in your Excel column data</div>
+          </div>
+          <i class="fa-solid fa-chevron-right ms-auto text-muted align-self-center"></i>
+        </a>
+      </div>
     </div>
   </div>
-  <div class="col-md-6">
-    <div class="card shadow-sm h-100">
-      <div class="card-header fw-semibold"><i class="fa-solid fa-star me-2 text-primary"></i>Features</div>
-      <ul class="list-group list-group-flush">
-        <li class="list-group-item"><i class="fa-solid fa-file-pdf text-danger me-2"></i>Professional PDF statements with transaction tables</li>
-        <li class="list-group-item"><i class="fa-solid fa-file-word text-primary me-2"></i>Word template support with dynamic data merge</li>
-        <li class="list-group-item"><i class="fa-solid fa-envelope text-info me-2"></i>Bulk email with personalized PDF attachments</li>
-        <li class="list-group-item"><i class="fa-solid fa-download text-success me-2"></i>Download individual or all PDFs as ZIP</li>
-        <li class="list-group-item"><i class="fa-solid fa-palette text-warning me-2"></i>Company branding via Settings</li>
-      </ul>
+
+  <!-- Tips -->
+  <div class="col-lg-7">
+    <div class="card h-100">
+      <div class="card-header">
+        <i class="fa-solid fa-circle-question text-info"></i>
+        Tips &amp; Common Questions
+      </div>
+      <div class="card-body d-flex flex-column gap-2">
+
+        <div class="tip-box">
+          <i class="fa-solid fa-lightbulb" style="color:#d97706;flex-shrink:0;margin-top:.1rem"></i>
+          <div><strong>First time?</strong> Download the Sample Excel Template from the sidebar, fill it with your client data, then upload it here. That's it!</div>
+        </div>
+
+        <div class="list-group list-group-flush" style="border-radius:var(--r)">
+          <div class="list-group-item border-0 px-0 py-2 d-flex gap-3">
+            <i class="fa-solid fa-circle-check text-success mt-1" style="flex-shrink:0"></i>
+            <div><strong>Excel format:</strong> Two sheets — <em>Clients</em> (name, email, account no) and <em>Transactions</em> (date, debit, credit, balance). Account numbers must match.</div>
+          </div>
+          <div class="list-group-item border-0 px-0 py-2 d-flex gap-3">
+            <i class="fa-solid fa-circle-check text-success mt-1" style="flex-shrink:0"></i>
+            <div><strong>Before sending emails:</strong> Go to Settings → SMTP and enter your Gmail / Outlook / SMTP details. Click "Test SMTP" to confirm it works.</div>
+          </div>
+          <div class="list-group-item border-0 px-0 py-2 d-flex gap-3">
+            <i class="fa-solid fa-circle-check text-success mt-1" style="flex-shrink:0"></i>
+            <div><strong>Your branding on PDFs:</strong> Go to Settings → Branding to upload your company logo and choose your brand color. Every PDF will use it.</div>
+          </div>
+          <div class="list-group-item border-0 px-0 py-2 d-flex gap-3">
+            <i class="fa-solid fa-circle-check text-success mt-1" style="flex-shrink:0"></i>
+            <div><strong>GST Invoices:</strong> Select Intra-State for CGST+SGST (same state) or Inter-State for IGST (different states). The PDF splits the tax correctly.</div>
+          </div>
+          <div class="list-group-item border-0 px-0 py-2 d-flex gap-3">
+            <i class="fa-solid fa-circle-check text-success mt-1" style="flex-shrink:0"></i>
+            <div><strong>Merge all PDFs into one:</strong> On the Clients page, click "Merge All to One PDF" to download a single combined file.</div>
+          </div>
+        </div>
+
+      </div>
     </div>
   </div>
+
 </div>
 {% endblock %}

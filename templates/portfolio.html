@@ -3,15 +3,23 @@
 
 {% block content %}
 <div class="page-header">
-  <h1><i class="fa-solid fa-chart-pie me-2 text-purple"></i>Portfolio / Investment Report</h1>
-  <p class="text-muted">Generate a detailed investment portfolio statement with holdings, returns &amp; asset allocation</p>
+  <h1><i class="fa-solid fa-chart-pie me-2" style="color:#7c3aed"></i>Portfolio / Investment Report</h1>
+  <p class="subtitle">Generate a detailed investment portfolio statement with holdings, returns &amp; asset allocation</p>
+</div>
+
+<div class="help-box mb-4">
+  <i class="fa-solid fa-circle-info help-icon"></i>
+  <div>
+    Enter investor details, add each holding (mutual fund / stock / asset), and click <strong>Generate PDF</strong>.
+    The live summary updates as you type. <strong>Returns %</strong> is auto-calculated from invested vs current value.
+  </div>
 </div>
 
 <div class="row g-4">
   <!-- Investor -->
   <div class="col-lg-5">
     <div class="card shadow-sm">
-      <div class="card-header fw-semibold"><i class="fa-solid fa-user me-2 text-primary"></i>Investor Details</div>
+      <div class="card-header"><i class="fa-solid fa-user" style="color:var(--brand-500)"></i>Investor Details</div>
       <div class="card-body">
         <div class="row g-2">
           <div class="col-12"><input class="form-control" id="inv_name" placeholder="Investor Name" required></div>
@@ -111,9 +119,14 @@
   </div>
 
   <div class="col-12">
-    <button class="btn btn-primary" id="genPortfolioBtn">
-      <i class="fa-solid fa-bolt me-2"></i>Generate Portfolio Report PDF
-    </button>
+    <div class="d-flex gap-3 align-items-center flex-wrap">
+      <button class="btn btn-primary btn-lg" id="genPortfolioBtn">
+        <i class="fa-solid fa-bolt"></i> Generate Portfolio Report PDF
+      </button>
+      <span class="text-muted" style="font-size:.875rem">
+        <i class="fa-solid fa-clock me-1"></i> Takes about 2–3 seconds
+      </span>
+    </div>
     <div id="portResult" class="mt-3"></div>
   </div>
 </div>
@@ -162,8 +175,15 @@ document.getElementById('holdingsBody').addEventListener('click', e => {
 document.getElementById('as_of').value = new Date().toISOString().split('T')[0];
 
 document.getElementById('genPortfolioBtn').addEventListener('click', async () => {
-  const btn = document.getElementById('genPortfolioBtn');
-  btn.disabled = true;
+  const btn   = document.getElementById('genPortfolioBtn');
+  const rdiv  = document.getElementById('portResult');
+  if (!document.getElementById('inv_name').value.trim()) {
+    rdiv.innerHTML = `<div class="alert alert-warning py-2"><i class="fa-solid fa-triangle-exclamation me-2"></i>Please enter the investor name.</div>`;
+    return;
+  }
+  btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Generating PDF…';
+  btn.disabled  = true;
+  rdiv.innerHTML = '';
   const holdings = [...document.querySelectorAll('.holding-row')].map(r => ({
     scheme:          r.querySelector('.h-scheme').value,
     category:        r.querySelector('.h-cat').value,
@@ -181,19 +201,30 @@ document.getElementById('genPortfolioBtn').addEventListener('click', async () =>
     as_of_date:   document.getElementById('as_of').value,
     holdings,
   };
-  const res  = await fetch('/generate-portfolio', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
-  const data = await res.json();
-  btn.disabled = false;
-  const r = document.getElementById('portResult');
-  if (data.ok) {
-    r.innerHTML = `<div class="alert alert-success">
-      <i class="fa-solid fa-check me-1"></i>Report generated!
-      <a href="/download-output/${data.file}" class="btn btn-sm btn-success ms-3">
-        <i class="fa-solid fa-download me-1"></i>Download PDF
-      </a>
-    </div>`;
-  } else {
-    r.innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
+  try {
+    const res  = await fetch('/generate-portfolio', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
+    const data = await res.json();
+    if (data.ok) {
+      rdiv.innerHTML = `
+        <div class="alert alert-success d-flex align-items-center gap-3 py-3">
+          <i class="fa-solid fa-circle-check fs-4"></i>
+          <div>
+            <strong>Report generated!</strong> Your PDF is ready.
+            <div class="mt-2">
+              <a href="/download-output/${data.file}" class="btn btn-success btn-sm">
+                <i class="fa-solid fa-download"></i> Download PDF
+              </a>
+            </div>
+          </div>
+        </div>`;
+    } else {
+      rdiv.innerHTML = `<div class="alert alert-danger py-2"><i class="fa-solid fa-circle-xmark me-2"></i>${data.error}</div>`;
+    }
+  } catch(e) {
+    rdiv.innerHTML = `<div class="alert alert-danger py-2">Error: ${e.message}</div>`;
+  } finally {
+    btn.innerHTML = '<i class="fa-solid fa-bolt"></i> Generate Portfolio Report PDF';
+    btn.disabled  = false;
   }
 });
 </script>
