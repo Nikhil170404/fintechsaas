@@ -124,6 +124,34 @@
   </div>
   {% endif %}
 
+  <!-- Mapping profiles -->
+  <div class="card shadow-sm mb-4 border-primary-subtle">
+    <div class="card-header fw-semibold d-flex align-items-center gap-2">
+      <i class="fa-solid fa-bookmark text-primary"></i>Mapping Profiles
+      <small class="text-muted fw-normal">Save &amp; reuse column mappings for different Excel formats</small>
+    </div>
+    <div class="card-body d-flex flex-wrap gap-3 align-items-end">
+      <div>
+        <label class="form-label small fw-semibold mb-1">Load a saved profile</label>
+        <div class="d-flex gap-2">
+          <select id="profileSelect" class="form-select form-select-sm" style="min-width:200px;">
+            <option value="">— choose profile —</option>
+          </select>
+          <button type="button" class="btn btn-outline-primary btn-sm" id="loadProfileBtn">Load</button>
+          <button type="button" class="btn btn-outline-danger btn-sm" id="deleteProfileBtn">Delete</button>
+        </div>
+      </div>
+      <div>
+        <label class="form-label small fw-semibold mb-1">Save current mapping as</label>
+        <div class="d-flex gap-2">
+          <input type="text" id="profileNameInput" class="form-control form-control-sm" placeholder="e.g. HDFC Format" style="min-width:180px;">
+          <button type="button" class="btn btn-primary btn-sm" id="saveProfileBtn">Save Profile</button>
+        </div>
+      </div>
+      <div id="profileMsg"></div>
+    </div>
+  </div>
+
   <div class="d-flex gap-3">
     <button type="submit" class="btn btn-primary">
       <i class="fa-solid fa-check me-2"></i>Apply Mapping &amp; Load Clients
@@ -140,6 +168,77 @@
 document.getElementById('flatModeSelect')?.addEventListener('change', function() {
   const flat = this.value === '1';
   document.getElementById('txnSheetRow').style.display = flat ? 'none' : '';
+});
+
+// ── Mapping profiles ──────────────────────────────────────────────────────────
+async function loadProfileList() {
+  const r = await fetch('/mapping-profiles');
+  const profiles = await r.json();
+  const sel = document.getElementById('profileSelect');
+  sel.innerHTML = '<option value="">— choose profile —</option>';
+  Object.keys(profiles).forEach(name => {
+    sel.innerHTML += `<option value="${name}">${name}</option>`;
+  });
+  return profiles;
+}
+loadProfileList();
+
+function collectCurrentMapping() {
+  const form = document.querySelector('form');
+  const data = {};
+  new FormData(form).forEach((v, k) => { if (v) data[k] = v; });
+  return data;
+}
+
+document.getElementById('saveProfileBtn')?.addEventListener('click', async () => {
+  const name = document.getElementById('profileNameInput').value.trim();
+  const msg  = document.getElementById('profileMsg');
+  if (!name) { msg.innerHTML = '<small class="text-danger">Enter a profile name.</small>'; return; }
+  const r = await fetch('/save-mapping-profile', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ name, mapping: collectCurrentMapping() })
+  });
+  const d = await r.json();
+  if (d.ok) {
+    await loadProfileList();
+    document.getElementById('profileNameInput').value = '';
+    msg.innerHTML = `<small class="text-success"><i class="fa-solid fa-check me-1"></i>Profile "${name}" saved!</small>`;
+  } else {
+    msg.innerHTML = `<small class="text-danger">${d.error}</small>`;
+  }
+});
+
+document.getElementById('loadProfileBtn')?.addEventListener('click', async () => {
+  const name = document.getElementById('profileSelect').value;
+  const msg  = document.getElementById('profileMsg');
+  if (!name) { msg.innerHTML = '<small class="text-danger">Select a profile first.</small>'; return; }
+  const r = await fetch('/mapping-profiles');
+  const profiles = await r.json();
+  const mapping = profiles[name];
+  if (!mapping) return;
+  // Apply all form fields from the saved mapping
+  const form = document.querySelector('form');
+  Object.entries(mapping).forEach(([k, v]) => {
+    const el = form.elements[k];
+    if (el) el.value = v;
+  });
+  msg.innerHTML = `<small class="text-success"><i class="fa-solid fa-check me-1"></i>Profile "${name}" loaded!</small>`;
+});
+
+document.getElementById('deleteProfileBtn')?.addEventListener('click', async () => {
+  const name = document.getElementById('profileSelect').value;
+  const msg  = document.getElementById('profileMsg');
+  if (!name) { msg.innerHTML = '<small class="text-danger">Select a profile first.</small>'; return; }
+  if (!confirm(`Delete profile "${name}"?`)) return;
+  const r = await fetch('/delete-mapping-profile', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ name })
+  });
+  const d = await r.json();
+  if (d.ok) {
+    await loadProfileList();
+    msg.innerHTML = `<small class="text-success">Profile "${name}" deleted.</small>`;
+  }
 });
 </script>
 {% endblock %}

@@ -1,4 +1,5 @@
 import datetime
+import re
 from pathlib import Path
 
 from reportlab.lib import colors
@@ -9,6 +10,7 @@ from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import cm, mm
 from reportlab.platypus import (
     HRFlowable,
+    Image,
     Paragraph,
     SimpleDocTemplate,
     Spacer,
@@ -16,9 +18,9 @@ from reportlab.platypus import (
     TableStyle,
 )
 
-# ── Brand palette ──────────────────────────────────────────────────────────────
-BRAND_BLUE = HexColor("#1E3A5F")
-BRAND_LIGHT = HexColor("#2E86AB")
+# ── Default brand palette ──────────────────────────────────────────────────────
+_DEFAULT_BRAND = "#1E3A5F"
+_DEFAULT_LIGHT = "#2E86AB"
 ACCENT_BG = HexColor("#EAF4FB")
 ROW_ALT = HexColor("#F5F9FC")
 TEXT_DARK = HexColor("#2C3E50")
@@ -28,16 +30,30 @@ RED = HexColor("#E74C3C")
 RULE_COLOR = HexColor("#BDC3C7")
 
 
+def _lighten_hex(hex_color: str, factor: float = 0.35) -> HexColor:
+    """Return a lighter variant of a hex color for secondary use."""
+    h = hex_color.lstrip("#")
+    r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+    r = int(r + (255 - r) * factor)
+    g = int(g + (255 - g) * factor)
+    b = int(b + (255 - b) * factor)
+    return HexColor(f"#{r:02x}{g:02x}{b:02x}")
+
+
 class PDFGenerator:
-    def __init__(self, output_dir: Path):
+    def __init__(self, output_dir: Path, brand_color: str = "", logo_path: Path | None = None):
         self.output_dir = output_dir
         self.output_dir.mkdir(parents=True, exist_ok=True)
+        bc = brand_color if re.match(r"^#[0-9a-fA-F]{6}$", brand_color or "") else _DEFAULT_BRAND
+        self.brand_blue  = HexColor(bc)
+        self.brand_light = _lighten_hex(bc, 0.4)
+        self.logo_path   = logo_path if logo_path and Path(logo_path).exists() else None
         self._init_styles()
 
     def _init_styles(self):
         self.co_name_style = ParagraphStyle(
             "CoName", fontName="Helvetica-Bold", fontSize=18,
-            textColor=BRAND_BLUE, alignment=TA_CENTER, spaceAfter=2,
+            textColor=self.brand_blue, alignment=TA_CENTER, spaceAfter=2,
         )
         self.subtitle_style = ParagraphStyle(
             "Sub", fontName="Helvetica", fontSize=9,
@@ -45,7 +61,7 @@ class PDFGenerator:
         )
         self.section_style = ParagraphStyle(
             "Section", fontName="Helvetica-Bold", fontSize=9,
-            textColor=BRAND_BLUE, spaceBefore=4,
+            textColor=self.brand_blue, spaceBefore=4,
         )
         self.footer_style = ParagraphStyle(
             "Footer", fontName="Helvetica", fontSize=7.5,
@@ -72,7 +88,7 @@ class PDFGenerator:
     # ── Page decorator ─────────────────────────────────────────────────────────
     def _page_deco(self, canvas, doc):
         canvas.saveState()
-        canvas.setStrokeColor(BRAND_LIGHT)
+        canvas.setStrokeColor(self.brand_light)
         canvas.setLineWidth(1.5)
         canvas.rect(0.7 * cm, 0.7 * cm, A4[0] - 1.4 * cm, A4[1] - 1.4 * cm)
         canvas.setFont("Helvetica", 7.5)
@@ -82,14 +98,24 @@ class PDFGenerator:
 
     # ── Section builders ────────────────────────────────────────────────────────
     def _header(self, company_name, period):
-        return [
+        items = []
+        if self.logo_path:
+            try:
+                img = Image(str(self.logo_path), width=6 * cm, height=1.6 * cm)
+                img.hAlign = "CENTER"
+                items.append(img)
+                items.append(Spacer(1, 2 * mm))
+            except Exception:
+                pass
+        items += [
             Paragraph(company_name, self.co_name_style),
             Paragraph("Account Statement", self.subtitle_style),
             Paragraph(f"Statement Period: <b>{period}</b>", self.subtitle_style),
             Spacer(1, 3 * mm),
-            HRFlowable(width="100%", thickness=2, color=BRAND_BLUE),
+            HRFlowable(width="100%", thickness=2, color=self.brand_blue),
             Spacer(1, 4 * mm),
         ]
+        return items
 
     def _client_box(self, client):
         today = datetime.date.today().strftime("%d %B %Y")
@@ -104,8 +130,8 @@ class PDFGenerator:
         tbl = Table(data, colWidths=w)
         tbl.setStyle(
             TableStyle([
-                ("BACKGROUND", (0, 0), (1, 0), BRAND_BLUE),
-                ("BACKGROUND", (2, 0), (3, 0), BRAND_LIGHT),
+                ("BACKGROUND", (0, 0), (1, 0), self.brand_blue),
+                ("BACKGROUND", (2, 0), (3, 0), self.brand_light),
                 ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
                 ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
                 ("FONTSIZE", (0, 0), (-1, 0), 9),
@@ -145,7 +171,7 @@ class PDFGenerator:
             rows.append(["", "No transactions in this period", "", "", "", "", ""])
 
         style = [
-            ("BACKGROUND", (0, 0), (-1, 0), BRAND_BLUE),
+            ("BACKGROUND", (0, 0), (-1, 0), self.brand_blue),
             ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
             ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
             ("FONTSIZE", (0, 0), (-1, 0), 9),
@@ -198,7 +224,7 @@ class PDFGenerator:
         tbl = Table(data, colWidths=w)
         tbl.setStyle(
             TableStyle([
-                ("BACKGROUND", (0, 0), (-1, 0), BRAND_LIGHT),
+                ("BACKGROUND", (0, 0), (-1, 0), self.brand_light),
                 ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
                 ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
                 ("FONTSIZE", (0, 0), (-1, 0), 10),
@@ -209,7 +235,7 @@ class PDFGenerator:
                 ("FONTSIZE", (0, 1), (-1, -1), 9),
                 ("ALIGN", (1, 1), (1, -1), "RIGHT"),
                 ("ALIGN", (3, 1), (3, -1), "RIGHT"),
-                ("TEXTCOLOR", (1, 1), (1, 1), BRAND_BLUE),
+                ("TEXTCOLOR", (1, 1), (1, 1), self.brand_blue),
                 ("TEXTCOLOR", (1, 2), (1, 2), GREEN),
                 ("TEXTCOLOR", (3, 1), (3, 1), RED),
                 ("TEXTCOLOR", (3, 2), (3, 2), GREEN),
@@ -234,7 +260,7 @@ class PDFGenerator:
             f"All transactions are subject to applicable terms and conditions."
         )
         return [
-            HRFlowable(width="100%", thickness=1, color=BRAND_BLUE),
+            HRFlowable(width="100%", thickness=1, color=self.brand_blue),
             Spacer(1, 2 * mm),
             Paragraph(text, self.footer_style),
         ]

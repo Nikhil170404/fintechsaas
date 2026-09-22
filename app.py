@@ -29,6 +29,7 @@ SETTINGS_FILE = UPLOAD_DIR / "settings.json"
 MAPPING_FILE  = UPLOAD_DIR / "column_mapping.json"
 TEMPLATE_PATH = UPLOAD_DIR / "word_template.docx"
 ACTIVITY_FILE = UPLOAD_DIR / "activity.json"
+PROFILES_FILE = UPLOAD_DIR / "mapping_profiles.json"
 
 for d in (UPLOAD_DIR, OUTPUT_DIR):
     d.mkdir(exist_ok=True)
@@ -94,6 +95,12 @@ def _load_activity():
 def _save_activity(a):
     ACTIVITY_FILE.write_text(json.dumps(a))
 
+def _load_profiles():
+    return json.loads(PROFILES_FILE.read_text()) if PROFILES_FILE.exists() else {}
+
+def _save_profiles(p):
+    PROFILES_FILE.write_text(json.dumps(p))
+
 def _load_settings():
     defaults = {
         "company_name":        Config.COMPANY_NAME,
@@ -115,6 +122,8 @@ def _load_settings():
         "email_html":          _default_html_template(),
         "admin_username":      "admin",
         "admin_password_hash": "",
+        "logo_filename":       "",
+        "brand_color":         "#1E3A5F",
     }
     if SETTINGS_FILE.exists():
         defaults.update(json.loads(SETTINGS_FILE.read_text()))
@@ -370,7 +379,10 @@ def generate():
     company  = request.form.get("company_name") or settings["company_name"]
     period   = request.form.get("statement_period", "")
     mode     = request.form.get("mode", "auto")
-    builder  = StatementBuilder(OUTPUT_DIR)
+    logo_p   = UPLOAD_DIR / settings.get("logo_filename", "") if settings.get("logo_filename") else None
+    builder  = StatementBuilder(OUTPUT_DIR,
+                                brand_color=settings.get("brand_color", ""),
+                                logo_path=logo_p)
     results  = []
     for c in clients:
         try:
@@ -591,6 +603,87 @@ def download_output(filename):
     if path.exists():
         return send_file(path, as_attachment=True)
     return "File not found", 404
+
+
+# ── Logo ───────────────────────────────────────────────────────────────────────
+
+@app.route("/logo")
+def serve_logo():
+    cfg = _load_settings()
+    logo_file = cfg.get("logo_filename", "")
+    if logo_file:
+        path = UPLOAD_DIR / logo_file
+        if path.exists():
+            return send_file(path)
+    return "Not found", 404
+
+
+@app.route("/upload-logo", methods=["POST"])
+@login_required
+def upload_logo():
+    f = request.files.get("logo_file")
+    if not f or not f.filename:
+        return jsonify({"error": "No file provided"}), 400
+    ext = Path(f.filename).suffix.lower()
+    if ext not in (".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp"):
+        return jsonify({"error": "Only PNG/JPG/GIF/SVG/WEBP allowed"}), 400
+    for old in UPLOAD_DIR.glob("logo.*"):
+        old.unlink(missing_ok=True)
+    logo_path = UPLOAD_DIR / f"logo{ext}"
+    f.save(logo_path)
+    cfg = _load_settings()
+    cfg["logo_filename"] = logo_path.name
+    _save_settings(cfg)
+    return jsonify({"ok": True, "url": url_for("serve_logo")})
+
+
+# ── Email template import from Word ────────────────────────────────────────────
+
+@app.route("/import-email-template", methods=["POST"])
+@login_required
+def import_email_template():
+    f = request.files.get("template_file")
+    if not f or not f.filename.lower().endswith(".docx"):
+        return jsonify({"error": "Please upload a .docx file."}), 400
+    try:
+        import mammoth
+        result = mammoth.convert_to_html(f)
+        return jsonify({"ok": True, "html": result.value})
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 500
+
+
+# ── Mapping profiles ────────────────────────────────────────────────────────────
+
+@app.route("/mapping-profiles")
+@login_required
+def get_mapping_profiles():
+    return jsonify(_load_profiles())
+
+
+@app.route("/save-mapping-profile", methods=["POST"])
+@login_required
+def save_mapping_profile():
+    data = request.get_json()
+    name = (data or {}).get("name", "").strip()
+    mapping = (data or {}).get("mapping")
+    if not name or not mapping:
+        return jsonify({"error": "Name and mapping required"}), 400
+    profiles = _load_profiles()
+    profiles[name] = mapping
+    _save_profiles(profiles)
+    return jsonify({"ok": True})
+
+
+@app.route("/delete-mapping-profile", methods=["POST"])
+@login_required
+def delete_mapping_profile():
+    data = request.get_json()
+    name = (data or {}).get("name", "")
+    profiles = _load_profiles()
+    profiles.pop(name, None)
+    _save_profiles(profiles)
+    return jsonify({"ok": True})
 
 
 # ── Template download ──────────────────────────────────────────────────────────

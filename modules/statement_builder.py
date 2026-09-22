@@ -11,9 +11,9 @@ class StatementBuilder:
       - 'template' → fill a Word template, convert to PDF via LibreOffice
     """
 
-    def __init__(self, output_dir: Path):
+    def __init__(self, output_dir: Path, brand_color: str = "", logo_path: Path | None = None):
         self.output_dir = output_dir
-        self._pdf_gen = PDFGenerator(output_dir)
+        self._pdf_gen = PDFGenerator(output_dir, brand_color=brand_color, logo_path=logo_path)
 
     def build(
         self,

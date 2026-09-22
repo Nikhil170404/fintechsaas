@@ -2,188 +2,444 @@
 {% block title %}Settings – FinTech SaaS{% endblock %}
 
 {% block content %}
-<div class="page-header">
-  <h1><i class="fa-solid fa-gear me-2"></i>Settings</h1>
-  <p class="text-muted">Configure company branding, SMTP &amp; email templates</p>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/quill/1.3.7/quill.snow.min.css" rel="stylesheet">
+
+<div class="page-header d-flex align-items-center justify-content-between flex-wrap gap-2">
+  <div>
+    <h1><i class="fa-solid fa-gear me-2"></i>Settings</h1>
+    <p class="text-muted mb-0">Configure branding, SMTP, email templates &amp; security</p>
+  </div>
 </div>
 
-<form method="POST">
-  <div class="row g-4">
+<!-- Tabs -->
+<ul class="nav nav-tabs mb-4" id="settingsTabs" role="tablist">
+  <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-branding"><i class="fa-solid fa-palette me-1"></i>Branding</button></li>
+  <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-smtp"><i class="fa-solid fa-server me-1"></i>SMTP</button></li>
+  <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-email"><i class="fa-solid fa-envelope me-1"></i>Email Template</button></li>
+  <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-security"><i class="fa-solid fa-lock me-1"></i>Security</button></li>
+</ul>
 
-    <!-- Company branding -->
-    <div class="col-lg-6">
-      <div class="card shadow-sm h-100">
-        <div class="card-header fw-semibold">
-          <i class="fa-solid fa-building me-2 text-primary"></i>Company Branding
-        </div>
-        <div class="card-body">
-          <div class="mb-3">
-            <label class="form-label">Company Name <span class="text-muted small">(shown on PDFs)</span></label>
-            <input type="text" name="company_name" class="form-control" value="{{ cfg.company_name }}">
+<form method="POST" id="settingsForm">
+<div class="tab-content">
+
+  <!-- ══ Branding ══ -->
+  <div class="tab-pane fade show active" id="tab-branding">
+    <div class="row g-4">
+
+      <!-- Logo -->
+      <div class="col-lg-5">
+        <div class="card shadow-sm h-100">
+          <div class="card-header fw-semibold"><i class="fa-solid fa-image me-2 text-primary"></i>Company Logo</div>
+          <div class="card-body d-flex flex-column gap-3">
+            <div id="logoPreviewWrap" class="border rounded p-3 text-center bg-light" style="min-height:100px;">
+              {% if cfg.logo_filename %}
+                <img id="logoPreview" src="{{ url_for('serve_logo') }}" alt="logo"
+                     style="max-height:80px;max-width:100%;object-fit:contain;">
+              {% else %}
+                <span id="logoPlaceholder" class="text-muted small">No logo uploaded</span>
+                <img id="logoPreview" src="" alt="logo" style="max-height:80px;max-width:100%;object-fit:contain;display:none;">
+              {% endif %}
+            </div>
+            <div class="input-group">
+              <input type="file" id="logoFile" class="form-control form-control-sm" accept=".png,.jpg,.jpeg,.gif,.svg,.webp">
+              <button type="button" class="btn btn-primary btn-sm" id="uploadLogoBtn">Upload</button>
+            </div>
+            <small class="text-muted">PNG, JPG, SVG, WebP — shown on PDFs &amp; email header. Recommended: 300×80px transparent PNG.</small>
+            <div id="logoMsg"></div>
           </div>
-          <div class="mb-3">
-            <label class="form-label">Sender Name <span class="text-muted small">(shown in email From:)</span></label>
-            <input type="text" name="sender_name" class="form-control" value="{{ cfg.sender_name }}">
+        </div>
+      </div>
+
+      <!-- Name + color -->
+      <div class="col-lg-7">
+        <div class="card shadow-sm h-100">
+          <div class="card-header fw-semibold"><i class="fa-solid fa-building me-2 text-primary"></i>Company Details</div>
+          <div class="card-body">
+            <div class="mb-3">
+              <label class="form-label fw-semibold">Company Name <small class="text-muted">(shown on PDFs &amp; emails)</small></label>
+              <input type="text" name="company_name" class="form-control" value="{{ cfg.company_name }}">
+            </div>
+            <div class="mb-3">
+              <label class="form-label fw-semibold">Sender Name <small class="text-muted">(email From: display name)</small></label>
+              <input type="text" name="sender_name" class="form-control" value="{{ cfg.sender_name }}">
+            </div>
+            <div class="mb-3">
+              <label class="form-label fw-semibold">Brand Color <small class="text-muted">(PDF header, email accent)</small></label>
+              <div class="d-flex align-items-center gap-2">
+                <input type="color" name="brand_color" id="brandColor" class="form-control form-control-color"
+                       value="{{ cfg.brand_color or '#1E3A5F' }}" style="width:56px;height:38px;">
+                <input type="text" id="brandColorHex" class="form-control font-monospace" style="max-width:120px"
+                       value="{{ cfg.brand_color or '#1E3A5F' }}" maxlength="7" placeholder="#1E3A5F">
+                <span class="text-muted small">Applied to all generated PDFs</span>
+              </div>
+            </div>
+            <button type="submit" class="btn btn-success">
+              <i class="fa-solid fa-floppy-disk me-2"></i>Save Branding
+            </button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ══ SMTP ══ -->
+  <div class="tab-pane fade" id="tab-smtp">
+    <div class="row g-4">
+      <div class="col-lg-7">
+        <div class="card shadow-sm">
+          <div class="card-header fw-semibold"><i class="fa-solid fa-server me-2 text-warning"></i>SMTP Configuration</div>
+          <div class="card-body">
+            <div class="mb-3">
+              <label class="form-label fw-semibold">SMTP Host</label>
+              <input type="text" name="smtp_host" class="form-control" value="{{ cfg.smtp_host }}" placeholder="smtp.gmail.com">
+              <small class="text-muted">Gmail: smtp.gmail.com &bull; Outlook: smtp.office365.com &bull; Zoho: smtp.zoho.in</small>
+            </div>
+            <div class="row g-2">
+              <div class="col-4">
+                <label class="form-label fw-semibold">Port</label>
+                <input type="number" name="smtp_port" class="form-control" value="{{ cfg.smtp_port }}" placeholder="587">
+                <small class="text-muted">587 (TLS) or 465 (SSL)</small>
+              </div>
+              <div class="col-8">
+                <label class="form-label fw-semibold">Email / Username</label>
+                <input type="email" name="smtp_user" class="form-control" value="{{ cfg.smtp_user }}" placeholder="you@company.com">
+              </div>
+            </div>
+            <div class="mt-3 mb-3">
+              <label class="form-label fw-semibold">App Password</label>
+              <input type="password" name="smtp_pass" class="form-control" value="{{ cfg.smtp_pass }}" placeholder="Gmail App Password or SMTP password">
+              <small class="text-muted">For Gmail, use an <a href="https://myaccount.google.com/apppasswords" target="_blank">App Password</a> — not your login password.</small>
+            </div>
+            <button type="submit" class="btn btn-success me-2">
+              <i class="fa-solid fa-floppy-disk me-2"></i>Save SMTP
+            </button>
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-5">
+        <div class="card shadow-sm border-info">
+          <div class="card-header fw-semibold text-info"><i class="fa-solid fa-flask me-2"></i>Test Connection</div>
+          <div class="card-body">
+            <p class="text-muted small">Send a test email to verify SMTP is working before sending to clients.</p>
+            <div class="input-group mb-2">
+              <input type="email" id="testEmail" class="form-control" placeholder="your@email.com">
+              <button class="btn btn-outline-info" type="button" id="testSmtpBtn">Send Test</button>
+            </div>
+            <div id="testResult"></div>
           </div>
         </div>
       </div>
     </div>
+  </div>
 
-    <!-- SMTP config -->
-    <div class="col-lg-6">
-      <div class="card shadow-sm h-100">
-        <div class="card-header fw-semibold">
-          <i class="fa-solid fa-server me-2 text-warning"></i>SMTP Configuration
-        </div>
-        <div class="card-body">
-          <div class="mb-3">
-            <label class="form-label">SMTP Host</label>
-            <input type="text" name="smtp_host" class="form-control" value="{{ cfg.smtp_host }}" placeholder="smtp.gmail.com">
-            <small class="text-muted">Gmail: smtp.gmail.com &bull; Outlook: smtp.office365.com</small>
-          </div>
-          <div class="row g-2">
-            <div class="col-4">
-              <label class="form-label">Port</label>
-              <input type="number" name="smtp_port" class="form-control" value="{{ cfg.smtp_port }}" placeholder="587">
-              <small class="text-muted">587 (TLS) or 465 (SSL)</small>
-            </div>
-            <div class="col-8">
-              <label class="form-label">Email / Username</label>
-              <input type="email" name="smtp_user" class="form-control" value="{{ cfg.smtp_user }}" placeholder="you@company.com">
-            </div>
-          </div>
-          <div class="mb-3 mt-3">
-            <label class="form-label">App Password</label>
-            <input type="password" name="smtp_pass" class="form-control" value="{{ cfg.smtp_pass }}" placeholder="Gmail App Password or SMTP password">
-            <small class="text-muted">
-              For Gmail: use an <a href="https://myaccount.google.com/apppasswords" target="_blank">App Password</a> (not your login password).
-            </small>
-          </div>
+  <!-- ══ Email Template ══ -->
+  <div class="tab-pane fade" id="tab-email">
+    <div class="card shadow-sm">
+      <div class="card-header fw-semibold d-flex align-items-center gap-2 flex-wrap">
+        <span><i class="fa-solid fa-envelope me-2 text-info"></i>Email Template</span>
+        <div class="ms-auto d-flex gap-2 flex-wrap">
+          <!-- Word import -->
+          <label class="btn btn-outline-primary btn-sm mb-0" title="Import from Word .docx">
+            <i class="fa-solid fa-file-word me-1"></i>Import from Word
+            <input type="file" id="wordImportFile" accept=".docx" class="d-none">
+          </label>
+          <!-- Preview -->
+          <button type="button" class="btn btn-outline-secondary btn-sm" id="previewEmailBtn">
+            <i class="fa-solid fa-eye me-1"></i>Preview
+          </button>
         </div>
       </div>
-    </div>
+      <div class="card-body">
 
-    <!-- Email template -->
-    <div class="col-12">
-      <div class="card shadow-sm">
-        <div class="card-header fw-semibold">
-          <i class="fa-solid fa-envelope me-2 text-info"></i>Email Template
-        </div>
-        <div class="card-body">
-          <div class="mb-3">
-            <label class="form-label">Subject Line</label>
+        <div class="row g-3 mb-3">
+          <div class="col-md-8">
+            <label class="form-label fw-semibold">Subject Line</label>
             <input type="text" name="email_subject" class="form-control" value="{{ cfg.email_subject }}">
-            <small class="text-muted">Available placeholder: <code>&#123;&#123;STATEMENT_PERIOD&#125;&#125;</code></small>
+            <small class="text-muted">Placeholder: <code>&#123;&#123;STATEMENT_PERIOD&#125;&#125;</code></small>
           </div>
-          <div class="mb-3">
-            <label class="form-label">Email Type</label>
+          <div class="col-md-4">
+            <label class="form-label fw-semibold">Email Type</label>
             <select name="email_type" class="form-select" id="emailTypeSelect">
               <option value="plain" {{ 'selected' if cfg.email_type == 'plain' }}>Plain Text</option>
-              <option value="html" {{ 'selected' if cfg.email_type == 'html' }}>HTML (branded)</option>
+              <option value="html"  {{ 'selected' if cfg.email_type == 'html'  }}>HTML (branded)</option>
             </select>
           </div>
-          <div class="mb-3" id="plainBodyBlock" style="{{ 'display:none' if cfg.email_type == 'html' else '' }}">
-            <label class="form-label">Plain Text Body</label>
-            <textarea name="email_body" class="form-control font-monospace" rows="8">{{ cfg.email_body }}</textarea>
+        </div>
+
+        <!-- Plain body -->
+        <div id="plainBodyBlock" {{ 'style="display:none"' if cfg.email_type == 'html' else '' }}>
+          <label class="form-label fw-semibold">Plain Text Body</label>
+          <textarea name="email_body" class="form-control font-monospace" rows="10">{{ cfg.email_body }}</textarea>
+          <small class="text-muted">Placeholders: <code>&#123;&#123;CLIENT_NAME&#125;&#125;</code> <code>&#123;&#123;ACCOUNT_NO&#125;&#125;</code> <code>&#123;&#123;STATEMENT_PERIOD&#125;&#125;</code> <code>&#123;&#123;CLOSING_BALANCE&#125;&#125;</code> <code>&#123;&#123;TOTAL_DEBIT&#125;&#125;</code> <code>&#123;&#123;TOTAL_CREDIT&#125;&#125;</code> <code>&#123;&#123;SENDER_NAME&#125;&#125;</code> <code>&#123;&#123;COMPANY_NAME&#125;&#125;</code></small>
+        </div>
+
+        <!-- HTML body – tabbed visual / source -->
+        <div id="htmlBodyBlock" {{ '' if cfg.email_type == 'html' else 'style="display:none"' }}>
+          <div class="d-flex align-items-center gap-2 mb-2">
+            <ul class="nav nav-pills nav-sm" id="editorModeTabs">
+              <li class="nav-item"><button class="nav-link active py-1 px-3" id="tabVisual" type="button"><i class="fa-solid fa-pen me-1"></i>Visual</button></li>
+              <li class="nav-item"><button class="nav-link py-1 px-3" id="tabSource" type="button"><i class="fa-solid fa-code me-1"></i>Source</button></li>
+            </ul>
+            <small class="text-muted ms-auto">Placeholders work in both modes</small>
           </div>
-          <div class="mb-3" id="htmlBodyBlock" style="{{ '' if cfg.email_type == 'html' else 'display:none' }}">
-            <label class="form-label">HTML Email Body
-              <small class="text-muted ms-2">(edit the HTML below — placeholders work here too)</small>
-            </label>
-            <textarea name="email_html" class="form-control font-monospace" rows="14" style="font-size:.8rem">{{ cfg.email_html }}</textarea>
+
+          <!-- Quill visual editor -->
+          <div id="visualEditorWrap">
+            <div id="quillEditor" style="min-height:280px;background:#fff;"></div>
           </div>
-          <div>
-            <small class="text-muted">
-              Available placeholders:
-              <code>&#123;&#123;CLIENT_NAME&#125;&#125;</code>
-              <code>&#123;&#123;ACCOUNT_NO&#125;&#125;</code>
-              <code>&#123;&#123;STATEMENT_PERIOD&#125;&#125;</code>
-              <code>&#123;&#123;CLOSING_BALANCE&#125;&#125;</code>
-              <code>&#123;&#123;TOTAL_DEBIT&#125;&#125;</code>
-              <code>&#123;&#123;TOTAL_CREDIT&#125;&#125;</code>
-              <code>&#123;&#123;SENDER_NAME&#125;&#125;</code>
-              <code>&#123;&#123;COMPANY_NAME&#125;&#125;</code>
-            </small>
+
+          <!-- Raw HTML source -->
+          <div id="sourceEditorWrap" style="display:none;">
+            <textarea id="htmlSourceArea" class="form-control font-monospace" rows="18" style="font-size:.78rem;">{{ cfg.email_html }}</textarea>
           </div>
+
+          <!-- Hidden field that gets submitted -->
+          <textarea name="email_html" id="emailHtmlField" class="d-none">{{ cfg.email_html }}</textarea>
+
+          <small class="text-muted d-block mt-2">Full placeholders: <code>&#123;&#123;CLIENT_NAME&#125;&#125;</code> <code>&#123;&#123;ACCOUNT_NO&#125;&#125;</code> <code>&#123;&#123;STATEMENT_PERIOD&#125;&#125;</code> <code>&#123;&#123;CLOSING_BALANCE&#125;&#125;</code> <code>&#123;&#123;TOTAL_DEBIT&#125;&#125;</code> <code>&#123;&#123;TOTAL_CREDIT&#125;&#125;</code> <code>&#123;&#123;SENDER_NAME&#125;&#125;</code> <code>&#123;&#123;COMPANY_NAME&#125;&#125;</code></small>
+        </div>
+
+        <div id="importMsg" class="mt-2"></div>
+
+        <div class="mt-3">
           <button type="submit" class="btn btn-success">
-            <i class="fa-solid fa-floppy-disk me-2"></i>Save Settings
+            <i class="fa-solid fa-floppy-disk me-2"></i>Save Template
           </button>
         </div>
       </div>
     </div>
-
-    <!-- Admin password -->
-    <div class="col-12">
-      <div class="card shadow-sm border-warning">
-        <div class="card-header fw-semibold text-warning">
-          <i class="fa-solid fa-lock me-2"></i>Change Admin Password
-        </div>
-        <div class="card-body">
-          <div class="row g-3">
-            <div class="col-md-4">
-              <label class="form-label">Admin Username</label>
-              <input type="text" name="admin_username" class="form-control" value="{{ cfg.admin_username or 'admin' }}" autocomplete="username">
-            </div>
-            <div class="col-md-4">
-              <label class="form-label">New Password <span class="text-muted small">(leave blank to keep current)</span></label>
-              <input type="password" name="new_password" class="form-control" placeholder="Enter new password" autocomplete="new-password">
-            </div>
-            <div class="col-md-4">
-              <label class="form-label">Confirm Password</label>
-              <input type="password" name="confirm_password" class="form-control" placeholder="Confirm new password" autocomplete="new-password">
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Test connection -->
-    <div class="col-12">
-      <div class="card shadow-sm border-info">
-        <div class="card-header fw-semibold text-info">
-          <i class="fa-solid fa-flask me-2"></i>Test SMTP Connection
-        </div>
-        <div class="card-body">
-          <p class="text-muted small">Send a test email to verify your SMTP settings are correct.</p>
-          <div class="input-group" style="max-width:420px">
-            <input type="email" id="testEmail" class="form-control" placeholder="Enter test email address">
-            <button class="btn btn-outline-info" type="button" id="testSmtpBtn">Send Test</button>
-          </div>
-          <div id="testResult" class="mt-2"></div>
-        </div>
-      </div>
-    </div>
-
   </div>
+
+  <!-- ══ Security ══ -->
+  <div class="tab-pane fade" id="tab-security">
+    <div class="card shadow-sm" style="max-width:520px;">
+      <div class="card-header fw-semibold"><i class="fa-solid fa-lock me-2 text-warning"></i>Admin Account</div>
+      <div class="card-body">
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Admin Username</label>
+          <input type="text" name="admin_username" class="form-control" value="{{ cfg.admin_username or 'admin' }}" autocomplete="username">
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-semibold">New Password <small class="text-muted">(leave blank to keep current)</small></label>
+          <div class="input-group">
+            <input type="password" name="new_password" id="newPass" class="form-control" placeholder="Enter new password" autocomplete="new-password">
+            <button type="button" class="btn btn-outline-secondary" id="toggleNewPass"><i class="fa-solid fa-eye fa-sm"></i></button>
+          </div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Confirm Password</label>
+          <input type="password" name="confirm_password" id="confirmPass" class="form-control" placeholder="Confirm new password" autocomplete="new-password">
+        </div>
+        <button type="submit" class="btn btn-success">
+          <i class="fa-solid fa-floppy-disk me-2"></i>Save Security
+        </button>
+      </div>
+    </div>
+  </div>
+
+</div>
 </form>
+
+<!-- Preview modal -->
+<div class="modal fade" id="previewModal" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="fa-solid fa-envelope me-2"></i>Email Preview</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-0">
+        <iframe id="previewFrame" style="width:100%;height:520px;border:none;"></iframe>
+      </div>
+    </div>
+  </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/quill/1.3.7/quill.min.js"></script>
 <script>
-document.getElementById('emailTypeSelect')?.addEventListener('change', function() {
-  const html = this.value === 'html';
-  document.getElementById('plainBodyBlock').style.display = html ? 'none' : '';
-  document.getElementById('htmlBodyBlock').style.display  = html ? '' : 'none';
-});
-document.getElementById('testSmtpBtn')?.addEventListener('click', async () => {
-  const email = document.getElementById('testEmail').value;
-  const result = document.getElementById('testResult');
-  if (!email) { result.innerHTML = '<small class="text-danger">Enter an email address</small>'; return; }
+// ── Brand color sync ─────────────────────────────────────────────────────────
+const colorPicker = document.getElementById('brandColor');
+const colorHex    = document.getElementById('brandColorHex');
+if (colorPicker && colorHex) {
+  colorPicker.addEventListener('input', () => colorHex.value = colorPicker.value);
+  colorHex.addEventListener('input', () => {
+    if (/^#[0-9a-fA-F]{6}$/.test(colorHex.value)) colorPicker.value = colorHex.value;
+  });
+}
 
+// ── Logo upload ───────────────────────────────────────────────────────────────
+document.getElementById('uploadLogoBtn')?.addEventListener('click', async () => {
+  const file = document.getElementById('logoFile').files[0];
+  const msg  = document.getElementById('logoMsg');
+  if (!file) { msg.innerHTML = '<small class="text-danger">Choose a file first.</small>'; return; }
+  const fd = new FormData();
+  fd.append('logo_file', file);
+  const r = await fetch('/upload-logo', { method: 'POST', body: fd });
+  const d = await r.json();
+  if (d.ok) {
+    const img = document.getElementById('logoPreview');
+    const ph  = document.getElementById('logoPlaceholder');
+    img.src   = d.url + '?t=' + Date.now();
+    img.style.display = '';
+    if (ph) ph.style.display = 'none';
+    msg.innerHTML = '<small class="text-success"><i class="fa-solid fa-check me-1"></i>Logo uploaded!</small>';
+  } else {
+    msg.innerHTML = `<small class="text-danger">${d.error}</small>`;
+  }
+});
+
+// ── Email type toggle ─────────────────────────────────────────────────────────
+const emailTypeSelect = document.getElementById('emailTypeSelect');
+function syncEmailBlocks() {
+  const isHtml = emailTypeSelect?.value === 'html';
+  document.getElementById('plainBodyBlock').style.display = isHtml ? 'none' : '';
+  document.getElementById('htmlBodyBlock').style.display  = isHtml ? '' : 'none';
+}
+emailTypeSelect?.addEventListener('change', syncEmailBlocks);
+
+// ── Quill editor ──────────────────────────────────────────────────────────────
+let quill;
+function initQuill() {
+  if (quill) return;
+  quill = new Quill('#quillEditor', {
+    theme: 'snow',
+    modules: {
+      toolbar: [
+        [{ header: [1,2,3,false] }],
+        ['bold','italic','underline'],
+        [{ color: [] }, { background: [] }],
+        [{ list: 'ordered' }, { list: 'bullet' }],
+        ['link','blockquote','code-block'],
+        ['clean']
+      ]
+    }
+  });
+  // Load current HTML into Quill (strip html/head/body wrapper for visual editing)
+  const raw = document.getElementById('emailHtmlField').value;
+  const body = extractBody(raw);
+  quill.clipboard.dangerouslyPasteHTML(0, body);
+}
+
+function extractBody(html) {
+  const m = html.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+  return m ? m[1] : html;
+}
+
+// Init Quill when Email Template tab is shown
+document.querySelector('[data-bs-target="#tab-email"]')?.addEventListener('shown.bs.tab', initQuill);
+// Also init if tab is already active on page load
+if (document.getElementById('tab-email')?.classList.contains('show')) initQuill();
+
+// ── Visual / Source tabs ──────────────────────────────────────────────────────
+document.getElementById('tabVisual')?.addEventListener('click', () => {
+  const src = document.getElementById('htmlSourceArea').value;
+  if (quill) quill.clipboard.dangerouslyPasteHTML(0, extractBody(src));
+  document.getElementById('visualEditorWrap').style.display = '';
+  document.getElementById('sourceEditorWrap').style.display = 'none';
+  document.getElementById('tabVisual').classList.add('active');
+  document.getElementById('tabSource').classList.remove('active');
+});
+document.getElementById('tabSource')?.addEventListener('click', () => {
+  if (quill) {
+    const html = quill.root.innerHTML;
+    const field = document.getElementById('emailHtmlField');
+    const existing = field.value;
+    // Wrap in email template if the current source looks like full HTML, else wrap body
+    const updated = existing.includes('<body') ?
+      existing.replace(/<body([^>]*)>[\s\S]*?<\/body>/i, `<body$1>${html}</body>`) :
+      html;
+    document.getElementById('htmlSourceArea').value = updated;
+  }
+  document.getElementById('visualEditorWrap').style.display = 'none';
+  document.getElementById('sourceEditorWrap').style.display = '';
+  document.getElementById('tabVisual').classList.remove('active');
+  document.getElementById('tabSource').classList.add('active');
+});
+
+// ── Sync before submit ────────────────────────────────────────────────────────
+document.getElementById('settingsForm')?.addEventListener('submit', () => {
+  const field = document.getElementById('emailHtmlField');
+  const srcVisible = document.getElementById('sourceEditorWrap')?.style.display !== 'none';
+  if (srcVisible) {
+    field.value = document.getElementById('htmlSourceArea').value;
+  } else if (quill) {
+    const html = quill.root.innerHTML;
+    const existing = field.value;
+    field.value = existing.includes('<body') ?
+      existing.replace(/<body([^>]*)>[\s\S]*?<\/body>/i, `<body$1>${html}</body>`) :
+      html;
+  }
+});
+
+// ── Import from Word ──────────────────────────────────────────────────────────
+document.getElementById('wordImportFile')?.addEventListener('change', async function() {
+  const file = this.files[0];
+  const msg  = document.getElementById('importMsg');
+  if (!file) return;
+  msg.innerHTML = '<small class="text-muted"><i class="fa-solid fa-spinner fa-spin me-1"></i>Converting Word document…</small>';
+  const fd = new FormData();
+  fd.append('template_file', file);
+  const r = await fetch('/import-email-template', { method: 'POST', body: fd });
+  const d = await r.json();
+  if (d.ok) {
+    initQuill();
+    quill.clipboard.dangerouslyPasteHTML(0, d.html);
+    document.getElementById('emailTypeSelect').value = 'html';
+    syncEmailBlocks();
+    // Switch to Visual tab
+    document.getElementById('tabVisual').click();
+    msg.innerHTML = '<small class="text-success"><i class="fa-solid fa-check me-1"></i>Word document imported! Review &amp; save.</small>';
+  } else {
+    msg.innerHTML = `<small class="text-danger">${d.error}</small>`;
+  }
+  this.value = '';
+});
+
+// ── Preview ───────────────────────────────────────────────────────────────────
+document.getElementById('previewEmailBtn')?.addEventListener('click', () => {
+  let html = document.getElementById('emailHtmlField').value;
+  // Fill sample placeholders
+  html = html
+    .replace(/\{\{CLIENT_NAME\}\}/g, 'Rajesh Kumar')
+    .replace(/\{\{ACCOUNT_NO\}\}/g, 'ACC-00123')
+    .replace(/\{\{STATEMENT_PERIOD\}\}/g, 'August 2026')
+    .replace(/\{\{CLOSING_BALANCE\}\}/g, '₹1,23,456.00')
+    .replace(/\{\{TOTAL_DEBIT\}\}/g, '₹45,000.00')
+    .replace(/\{\{TOTAL_CREDIT\}\}/g, '₹55,000.00')
+    .replace(/\{\{SENDER_NAME\}\}/g, document.querySelector('[name=sender_name]')?.value || 'Finance Team')
+    .replace(/\{\{COMPANY_NAME\}\}/g, document.querySelector('[name=company_name]')?.value || 'FinTech SaaS');
+  const frame = document.getElementById('previewFrame');
+  frame.srcdoc = html;
+  new bootstrap.Modal(document.getElementById('previewModal')).show();
+});
+
+// ── SMTP test ─────────────────────────────────────────────────────────────────
+document.getElementById('testSmtpBtn')?.addEventListener('click', async () => {
+  const email  = document.getElementById('testEmail').value;
+  const result = document.getElementById('testResult');
+  if (!email) { result.innerHTML = '<small class="text-danger">Enter an email address.</small>'; return; }
   document.getElementById('testSmtpBtn').disabled = true;
   result.innerHTML = '<small class="text-muted"><i class="fa-solid fa-spinner fa-spin me-1"></i>Sending…</small>';
-
   const fd = new FormData();
   fd.append('test_email', email);
-  const res = await fetch('/test-smtp', { method: 'POST', body: fd });
-  const data = await res.json();
+  const r = await fetch('/test-smtp', { method: 'POST', body: fd });
+  const d = await r.json();
   document.getElementById('testSmtpBtn').disabled = false;
+  result.innerHTML = d.ok
+    ? '<small class="text-success"><i class="fa-solid fa-check me-1"></i>Test email sent!</small>'
+    : `<small class="text-danger"><i class="fa-solid fa-xmark me-1"></i>${d.error}</small>`;
+});
 
-  if (data.ok) {
-    result.innerHTML = '<small class="text-success"><i class="fa-solid fa-check me-1"></i>Test email sent successfully!</small>';
-  } else {
-    result.innerHTML = `<small class="text-danger"><i class="fa-solid fa-xmark me-1"></i>${data.error}</small>`;
-  }
+// ── Password toggle ───────────────────────────────────────────────────────────
+document.getElementById('toggleNewPass')?.addEventListener('click', function() {
+  const inp  = document.getElementById('newPass');
+  const icon = this.querySelector('i');
+  inp.type = inp.type === 'password' ? 'text' : 'password';
+  icon.classList.toggle('fa-eye');
+  icon.classList.toggle('fa-eye-slash');
 });
 </script>
 {% endblock %}
