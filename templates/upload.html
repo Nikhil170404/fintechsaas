@@ -36,6 +36,7 @@
       </div>
       <div class="card-body">
         <form method="POST" enctype="multipart/form-data" id="uploadForm">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <div class="drop-zone" id="dropZone" role="button" tabindex="0">
             <i class="fa-solid fa-cloud-arrow-up drop-icon" id="dropIcon"></i>
             <div class="drop-title" id="dropTitle">Drag &amp; drop your Excel file here</div>
@@ -84,6 +85,7 @@
             <span class="badge bg-success">Sheet 1</span>
             <span class="fw-semibold">Clients</span>
           </div>
+          <div class="table-responsive">
           <table class="table table-sm table-bordered mb-0" style="font-size:.8rem">
             <thead class="table-dark">
               <tr><th>Account No</th><th>Client Name</th><th>Email</th></tr>
@@ -93,6 +95,7 @@
               <tr class="text-muted"><td colspan="3" style="font-size:.75rem">… more rows</td></tr>
             </tbody>
           </table>
+          </div>
         </div>
 
         <div class="p-3">
@@ -100,6 +103,7 @@
             <span class="badge bg-primary">Sheet 2</span>
             <span class="fw-semibold">Transactions</span>
           </div>
+          <div class="table-responsive">
           <table class="table table-sm table-bordered mb-0" style="font-size:.8rem">
             <thead class="table-dark">
               <tr><th>Account No</th><th>Date</th><th>Debit</th><th>Credit</th><th>Balance</th></tr>
@@ -110,6 +114,7 @@
               <tr class="text-muted"><td colspan="5" style="font-size:.75rem">… more rows</td></tr>
             </tbody>
           </table>
+          </div>
           <div class="form-hint mt-2">
             <i class="fa-solid fa-circle-info"></i>
             Account No must match exactly between the two sheets

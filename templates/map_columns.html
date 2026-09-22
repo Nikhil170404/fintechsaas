@@ -10,6 +10,7 @@
 </div>
 
 <form method="POST" action="{{ url_for('save_mapping') }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
   <!-- Mode toggle -->
   <div class="card shadow-sm mb-4">

@@ -4,6 +4,7 @@ __pycache__/
 *.pyo
 uploads/
 output/
+data/
 *.log
 .DS_Store
 venv/

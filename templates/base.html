@@ -121,10 +121,10 @@
   <!-- Footer -->
   <div class="sidebar-footer">
     <div class="sidebar-user">
-      <div class="sidebar-avatar">A</div>
+      <div class="sidebar-avatar">{{ session.get('username', '?')[0]|upper }}</div>
       <div class="sidebar-user-info">
-        <div class="sidebar-username">Admin</div>
-        <div class="sidebar-role">Administrator</div>
+        <div class="sidebar-username">{{ session.get('username', '') }}</div>
+        <div class="sidebar-role">{{ 'Owner' if session.get('role') == 'owner' else 'Staff' }}</div>
       </div>
     </div>
     <a href="{{ url_for('logout') }}" class="sidebar-logout">

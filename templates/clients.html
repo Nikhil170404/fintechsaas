@@ -122,6 +122,7 @@
       {% endif %}
     </p>
     <form method="POST" action="{{ url_for('upload_template') }}" enctype="multipart/form-data" class="d-flex gap-2">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <input type="file" name="word_template" class="form-control form-control-sm" accept=".docx" required style="max-width:320px">
       <button class="btn btn-primary btn-sm">Upload Template</button>
     </form>

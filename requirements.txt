@@ -9,3 +9,5 @@ flask-limiter>=3.5.0
 cryptography>=42.0.0
 mammoth>=1.6.0
 pypdf>=4.0.0
+gunicorn>=21.2.0
+premailer>=3.10.0
