@@ -847,6 +847,76 @@ def delete_mapping_profile():
     return jsonify({"ok": True})
 
 
+# ── Template Designer ─────────────────────────────────────────────────────────
+
+SAVED_DOC_TEMPLATE = UPLOAD_DIR / "document_template.html"
+
+@app.route("/template-designer")
+@login_required
+def template_designer():
+    saved_html = SAVED_DOC_TEMPLATE.read_text(encoding="utf-8") if SAVED_DOC_TEMPLATE.exists() else ""
+    return render_template("template_designer.html", saved_html=saved_html)
+
+
+@app.route("/template-designer/load-excel", methods=["POST"])
+@login_required
+def td_load_excel():
+    import pandas as pd
+    f = request.files.get("excel_file")
+    if not f:
+        return jsonify({"error": "No file uploaded"}), 400
+    try:
+        df = pd.read_excel(f, nrows=10)
+        columns = [str(c) for c in df.columns]
+        sample = {}
+        if len(df) > 0:
+            row = df.iloc[0]
+            for col in columns:
+                val = row[col]
+                sample[col] = "" if pd.isna(val) else str(val)
+        return jsonify({"columns": columns, "sample": sample})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+
+@app.route("/template-designer/import-word", methods=["POST"])
+@login_required
+def td_import_word():
+    import mammoth
+    f = request.files.get("word_file")
+    if not f:
+        return jsonify({"error": "No file"}), 400
+    try:
+        result = mammoth.convert_to_html(f)
+        return jsonify({"ok": True, "html": result.value})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+
+@app.route("/template-designer/preview", methods=["POST"])
+@login_required
+def td_preview():
+    data = request.get_json(force=True)
+    html = data.get("html", "")
+    sample = data.get("sample", {})
+    for col, val in sample.items():
+        html = html.replace("{{" + col + "}}", str(val))
+        html = html.replace("{{ " + col + " }}", str(val))
+    return jsonify({"html": html})
+
+
+@app.route("/template-designer/save", methods=["POST"])
+@login_required
+def td_save():
+    data = request.get_json(force=True)
+    html = data.get("html", "").strip()
+    if not html:
+        return jsonify({"error": "Template is empty"}), 400
+    SAVED_DOC_TEMPLATE.write_text(html, encoding="utf-8")
+    _audit("TEMPLATE_SAVED", f"document_template.html ({len(html)} chars)")
+    return jsonify({"ok": True})
+
+
 # ── Template download ──────────────────────────────────────────────────────────
 
 @app.route("/download-template")

@@ -1,0 +1,346 @@
+{% extends "base.html" %}
+{% block title %}Template Designer – FinTech SaaS{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex align-items-center justify-content-between flex-wrap gap-2">
+  <div>
+    <h1><i class="fa-solid fa-wand-magic-sparkles me-2 text-primary"></i>Template Designer</h1>
+    <p class="text-muted mb-0">Upload Excel to see columns, import a Word template, then insert dynamic fields.</p>
+  </div>
+  <div class="d-flex gap-2 flex-wrap">
+    <button id="previewBtn" class="btn btn-outline-info btn-sm" disabled>
+      <i class="fa-solid fa-eye me-1"></i>Preview
+    </button>
+    <button id="saveBtn" class="btn btn-success btn-sm" disabled>
+      <i class="fa-solid fa-floppy-disk me-1"></i>Save Template
+    </button>
+  </div>
+</div>
+
+<div class="row g-3" style="min-height:75vh;">
+
+  <!-- ── Left panel: data fields ─────────────────────────────────────────── -->
+  <div class="col-lg-3">
+
+    <!-- Step 1: Upload Excel -->
+    <div class="card shadow-sm mb-3">
+      <div class="card-header fw-semibold py-2">
+        <span class="badge bg-primary rounded-pill me-1">1</span>
+        Upload Excel
+      </div>
+      <div class="card-body">
+        <div class="mb-2">
+          <input type="file" id="excelFile" accept=".xlsx,.xls" class="form-control form-control-sm">
+        </div>
+        <button id="loadExcelBtn" class="btn btn-primary btn-sm w-100">
+          <i class="fa-solid fa-table me-1"></i>Load Columns
+        </button>
+        <div id="excelMsg" class="mt-2"></div>
+      </div>
+    </div>
+
+    <!-- Step 2: Data fields chips -->
+    <div class="card shadow-sm mb-3" id="fieldsCard" style="display:none;">
+      <div class="card-header fw-semibold py-2 d-flex align-items-center justify-content-between">
+        <span><i class="fa-solid fa-table-columns me-1 text-success"></i>Data Fields</span>
+        <small class="text-muted">Click to insert</small>
+      </div>
+      <div class="card-body p-2">
+        <div id="fieldChips" class="d-flex flex-wrap gap-1"></div>
+        <hr class="my-2">
+        <small class="text-muted d-block mb-2">Or type manually in editor: <code>&#123;&#123;column_name&#125;&#125;</code></small>
+        <input type="text" id="customFieldInput" class="form-control form-control-sm" placeholder="Custom field name…">
+        <button id="insertCustomBtn" class="btn btn-outline-secondary btn-sm w-100 mt-1">
+          <i class="fa-solid fa-plus me-1"></i>Insert Custom
+        </button>
+      </div>
+    </div>
+
+    <!-- Step 3: Import Word template -->
+    <div class="card shadow-sm">
+      <div class="card-header fw-semibold py-2">
+        <span class="badge bg-primary rounded-pill me-1">2</span>
+        Import Template
+      </div>
+      <div class="card-body">
+        <label class="form-label small fw-semibold">Upload Word (.docx)</label>
+        <input type="file" id="wordFile" accept=".docx" class="form-control form-control-sm mb-2">
+        <button id="importWordBtn" class="btn btn-outline-primary btn-sm w-100">
+          <i class="fa-solid fa-file-word me-1"></i>Import &amp; Render
+        </button>
+        <div id="wordMsg" class="mt-2"></div>
+        <hr class="my-2">
+        <label class="form-label small fw-semibold">Or paste HTML directly</label>
+        <textarea id="pasteHtmlArea" class="form-control form-control-sm font-monospace"
+          rows="4" placeholder="Paste raw HTML here…" style="font-size:.75rem;"></textarea>
+        <button id="pasteHtmlBtn" class="btn btn-outline-secondary btn-sm w-100 mt-1">
+          <i class="fa-solid fa-code me-1"></i>Load Pasted HTML
+        </button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ── Center: editor ──────────────────────────────────────────────────── -->
+  <div class="col-lg-9 d-flex flex-column gap-3">
+
+    <!-- Editor toolbar hint -->
+    <div class="alert alert-info py-2 mb-0 small d-flex align-items-center gap-2">
+      <i class="fa-solid fa-circle-info"></i>
+      <span>Click a <strong>Data Field</strong> chip on the left to insert <code>&#123;&#123;column&#125;&#125;</code> at the cursor.
+      Use <strong>Preview</strong> to see it filled with real Excel data.</span>
+    </div>
+
+    <!-- Visual / Source tabs -->
+    <div class="card shadow-sm flex-grow-1 d-flex flex-column">
+      <div class="card-header py-2 d-flex align-items-center gap-2">
+        <span class="fw-semibold me-2"><i class="fa-solid fa-pen-to-square me-1"></i>Editor</span>
+        <button id="tabVisual" class="btn btn-sm btn-primary active-tab-btn">Visual</button>
+        <button id="tabSource" class="btn btn-sm btn-outline-secondary">Source</button>
+        <div class="ms-auto text-muted small" id="charCount"></div>
+      </div>
+      <div class="card-body p-0 d-flex flex-column flex-grow-1" style="min-height:520px;">
+        <!-- Quill -->
+        <div id="quillEditor" style="flex:1;font-size:.95rem;"></div>
+        <!-- Raw HTML textarea -->
+        <div id="sourceWrap" style="display:none;flex:1;">
+          <textarea id="htmlSource"
+            class="form-control font-monospace border-0 rounded-0 h-100"
+            style="resize:none;font-size:.8rem;min-height:520px;"
+            placeholder="Raw HTML…"></textarea>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Preview modal -->
+<div class="modal fade" id="previewModal" tabindex="-1">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="fa-solid fa-eye me-2"></i>Template Preview — sample data from first Excel row</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-0">
+        <iframe id="previewFrame" style="width:100%;height:70vh;border:none;background:#fff;"></iframe>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Save success toast -->
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index:1100;">
+  <div id="saveToast" class="toast align-items-center text-bg-success border-0" role="alert">
+    <div class="d-flex">
+      <div class="toast-body"><i class="fa-solid fa-check me-2"></i>Template saved successfully!</div>
+      <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/quill/1.3.7/quill.snow.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/quill/1.3.7/quill.min.js"></script>
+<script>
+// ── State ─────────────────────────────────────────────────────────────────────
+let quill = null;
+let sampleData = {};   // first Excel row, keyed by column name
+
+// ── Init Quill ────────────────────────────────────────────────────────────────
+function initQuill() {
+  if (quill) return;
+  quill = new Quill('#quillEditor', {
+    theme: 'snow',
+    placeholder: 'Import a Word template or paste HTML to start editing…',
+    modules: {
+      toolbar: [
+        [{ header: [1,2,3,false] }],
+        ['bold','italic','underline','strike'],
+        [{ color:[] },{ background:[] }],
+        [{ list:'ordered' },{ list:'bullet' }],
+        [{ align:[] }],
+        ['link','blockquote'],
+        ['clean'],
+      ]
+    }
+  });
+  quill.on('text-change', updateCharCount);
+}
+
+function updateCharCount() {
+  const el = document.getElementById('charCount');
+  if (el && quill) el.textContent = quill.getText().replace(/\n/g,'').length + ' chars';
+}
+
+function getEditorHtml() {
+  const srcVisible = document.getElementById('sourceWrap').style.display !== 'none';
+  return srcVisible
+    ? document.getElementById('htmlSource').value
+    : (quill ? quill.root.innerHTML : '');
+}
+
+function setEditorHtml(html) {
+  initQuill();
+  // Use dangerouslyPasteHTML so Word-converted markup is preserved
+  quill.root.innerHTML = html;
+  document.getElementById('htmlSource').value = html;
+  document.getElementById('saveBtn').disabled = false;
+  document.getElementById('previewBtn').disabled = false;
+  updateCharCount();
+}
+
+// ── Load saved template on page load ─────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+  initQuill();
+  const saved = {{ saved_html | tojson }};
+  if (saved) setEditorHtml(saved);
+
+  // Load columns if Excel already uploaded
+  {% if saved_html %}
+  document.getElementById('saveBtn').disabled = false;
+  document.getElementById('previewBtn').disabled = false;
+  {% endif %}
+});
+
+// ── Visual / Source tab toggle ────────────────────────────────────────────────
+document.getElementById('tabVisual').addEventListener('click', () => {
+  const src = document.getElementById('htmlSource').value;
+  if (src) quill.root.innerHTML = src;
+  document.getElementById('quillEditor').style.display = '';
+  document.getElementById('sourceWrap').style.display = 'none';
+  document.getElementById('tabVisual').classList.replace('btn-outline-secondary','btn-primary');
+  document.getElementById('tabSource').classList.replace('btn-primary','btn-outline-secondary');
+  document.getElementById('tabVisual').classList.add('active-tab-btn');
+  document.getElementById('tabSource').classList.remove('active-tab-btn');
+});
+
+document.getElementById('tabSource').addEventListener('click', () => {
+  if (quill) document.getElementById('htmlSource').value = quill.root.innerHTML;
+  document.getElementById('quillEditor').style.display = 'none';
+  document.getElementById('sourceWrap').style.display = 'flex';
+  document.getElementById('tabSource').classList.replace('btn-outline-secondary','btn-primary');
+  document.getElementById('tabVisual').classList.replace('btn-primary','btn-outline-secondary');
+});
+
+// ── Step 1: Load Excel columns ────────────────────────────────────────────────
+document.getElementById('loadExcelBtn').addEventListener('click', async () => {
+  const file = document.getElementById('excelFile').files[0];
+  const msg  = document.getElementById('excelMsg');
+  if (!file) { msg.innerHTML = '<small class="text-danger">Choose an Excel file first.</small>'; return; }
+  msg.innerHTML = '<small class="text-muted"><i class="fa-solid fa-spinner fa-spin me-1"></i>Reading…</small>';
+  const fd = new FormData();
+  fd.append('excel_file', file);
+  const r = await fetch('/template-designer/load-excel', { method: 'POST', body: fd });
+  const d = await r.json();
+  if (d.error) { msg.innerHTML = `<small class="text-danger">${d.error}</small>`; return; }
+
+  sampleData = d.sample || {};
+  const chips = document.getElementById('fieldChips');
+  chips.innerHTML = '';
+  d.columns.forEach(col => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'btn btn-outline-primary btn-sm field-chip';
+    btn.style.cssText = 'font-size:.75rem;padding:2px 8px;';
+    btn.textContent = col;
+    btn.title = `Sample: ${sampleData[col] ?? ''}`;
+    btn.addEventListener('click', () => insertField(col));
+    chips.appendChild(btn);
+  });
+  document.getElementById('fieldsCard').style.display = '';
+  msg.innerHTML = `<small class="text-success"><i class="fa-solid fa-check me-1"></i>${d.columns.length} columns loaded.</small>`;
+});
+
+// ── Insert field at cursor ────────────────────────────────────────────────────
+function insertField(col) {
+  initQuill();
+  const srcVisible = document.getElementById('sourceWrap').style.display !== 'none';
+  const placeholder = '{{' + col + '}}';
+  if (srcVisible) {
+    const ta = document.getElementById('htmlSource');
+    const pos = ta.selectionStart;
+    ta.value = ta.value.slice(0, pos) + placeholder + ta.value.slice(ta.selectionEnd);
+    ta.selectionStart = ta.selectionEnd = pos + placeholder.length;
+    ta.focus();
+  } else {
+    const range = quill.getSelection(true);
+    const idx = range ? range.index : quill.getLength();
+    quill.insertText(idx, placeholder, { bold: false, color: '#1e3a5f' });
+    quill.setSelection(idx + placeholder.length);
+    quill.focus();
+  }
+  document.getElementById('saveBtn').disabled = false;
+  document.getElementById('previewBtn').disabled = false;
+}
+
+// ── Custom field ──────────────────────────────────────────────────────────────
+document.getElementById('insertCustomBtn').addEventListener('click', () => {
+  const val = document.getElementById('customFieldInput').value.trim();
+  if (val) { insertField(val); document.getElementById('customFieldInput').value = ''; }
+});
+document.getElementById('customFieldInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') { e.preventDefault(); document.getElementById('insertCustomBtn').click(); }
+});
+
+// ── Step 2a: Import Word ──────────────────────────────────────────────────────
+document.getElementById('importWordBtn').addEventListener('click', async () => {
+  const file = document.getElementById('wordFile').files[0];
+  const msg  = document.getElementById('wordMsg');
+  if (!file) { msg.innerHTML = '<small class="text-danger">Choose a .docx file first.</small>'; return; }
+  msg.innerHTML = '<small class="text-muted"><i class="fa-solid fa-spinner fa-spin me-1"></i>Converting…</small>';
+  const fd = new FormData();
+  fd.append('word_file', file);
+  const r = await fetch('/template-designer/import-word', { method: 'POST', body: fd });
+  const d = await r.json();
+  if (d.error) { msg.innerHTML = `<small class="text-danger">${d.error}</small>`; return; }
+  setEditorHtml(d.html);
+  msg.innerHTML = '<small class="text-success"><i class="fa-solid fa-check me-1"></i>Word document imported!</small>';
+});
+
+// ── Step 2b: Paste HTML ───────────────────────────────────────────────────────
+document.getElementById('pasteHtmlBtn').addEventListener('click', () => {
+  const html = document.getElementById('pasteHtmlArea').value.trim();
+  if (!html) return;
+  setEditorHtml(html);
+  document.getElementById('pasteHtmlArea').value = '';
+});
+
+// ── Preview ───────────────────────────────────────────────────────────────────
+document.getElementById('previewBtn').addEventListener('click', async () => {
+  const html = getEditorHtml();
+  if (!html.trim()) return;
+  const r = await fetch('/template-designer/preview', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ html, sample: sampleData }),
+  });
+  const d = await r.json();
+  document.getElementById('previewFrame').srcdoc = d.html;
+  new bootstrap.Modal(document.getElementById('previewModal')).show();
+});
+
+// ── Save ──────────────────────────────────────────────────────────────────────
+document.getElementById('saveBtn').addEventListener('click', async () => {
+  const html = getEditorHtml();
+  if (!html.trim()) return;
+  const r = await fetch('/template-designer/save', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ html }),
+  });
+  const d = await r.json();
+  if (d.ok) {
+    new bootstrap.Toast(document.getElementById('saveToast')).show();
+  }
+});
+</script>
+
+<style>
+.field-chip:hover { background: #1e3a5f !important; color: #fff !important; }
+#quillEditor .ql-editor { min-height: 480px; }
+.active-tab-btn { box-shadow: none !important; }
+</style>
+{% endblock %}

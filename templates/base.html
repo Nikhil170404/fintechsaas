@@ -39,6 +39,9 @@
       <i class="fa-solid fa-chart-pie"></i> Portfolio Report
     </a>
     <div class="sidebar-divider"></div>
+    <a href="{{ url_for('template_designer') }}" class="{{ 'active' if request.endpoint == 'template_designer' }}">
+      <i class="fa-solid fa-wand-magic-sparkles"></i> Template Designer
+    </a>
     <a href="{{ url_for('settings') }}" class="{{ 'active' if request.endpoint == 'settings' }}">
       <i class="fa-solid fa-gear"></i> Settings
     </a>
