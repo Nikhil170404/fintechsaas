@@ -5,6 +5,7 @@ Input dict:
   borrower_name, email, loan_no, loan_amount, interest_rate (annual %),
   tenure_months, start_date (YYYY-MM-DD), disbursement_date
 """
+import re
 import datetime
 from pathlib import Path
 
@@ -15,8 +16,15 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import cm, mm
 from reportlab.platypus import (
-    HRFlowable, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle,
+    HRFlowable, Image, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle,
 )
+
+_DEFAULT_BRAND = "#1E3A5F"
+
+def _lighten(hex_color: str, f: float = 0.40) -> HexColor:
+    h = hex_color.lstrip("#")
+    r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+    return HexColor(f"#{int(r+(255-r)*f):02x}{int(g+(255-g)*f):02x}{int(b+(255-b)*f):02x}")
 
 BLUE = HexColor("#1E3A5F")
 LIGHT = HexColor("#2E86AB")
@@ -63,9 +71,19 @@ def _schedule(principal: float, annual_rate: float, months: int,
 
 
 class LoanScheduleGenerator:
-    def __init__(self, output_dir: Path):
+    def __init__(self, output_dir: Path,
+                 brand_color: str = "",
+                 logo_path: Path | None = None):
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
+        bc = brand_color if re.match(r"^#[0-9a-fA-F]{6}$", brand_color or "") else _DEFAULT_BRAND
+        self._blue  = HexColor(bc)
+        self._light = _lighten(bc, 0.40)
+        self._accent = _lighten(bc, 0.90)
+        self.logo_path = logo_path if logo_path and Path(logo_path).exists() else None
+        # update module-level constants so existing _header/_schedule_table etc. work
+        global BLUE, LIGHT, ACCENT
+        BLUE = self._blue; LIGHT = self._light; ACCENT = self._accent
 
     def generate(self, loan: dict, company_name: str) -> Path:
         loan_no = loan.get("loan_no", "LOAN-001")
@@ -106,6 +124,20 @@ class LoanScheduleGenerator:
     def _header(self, company_name, loan, emi, principal, months):
         title_s = _s("t", font="Helvetica-Bold", size=17, textColor=BLUE, alignment=TA_CENTER)
         sub_s = _s("sub", size=9, textColor=GRAY, alignment=TA_CENTER)
+        items = []
+        if self.logo_path:
+            try:
+                img = Image(str(self.logo_path), width=5*cm, height=1.5*cm)
+                img.hAlign = "CENTER"
+                items.append(img)
+                items.append(Spacer(1, 2*mm))
+            except Exception:
+                pass
+        items += [Paragraph(company_name, title_s),
+                  Paragraph("Loan Amortization Schedule", sub_s),
+                  Spacer(1, 3*mm),
+                  HRFlowable(width="100%", thickness=2, color=BLUE),
+                  Spacer(1, 4*mm)]
 
         info = [
             ["Borrower", loan.get("borrower_name", ""), "Loan No.", loan.get("loan_no", "")],
@@ -127,15 +159,9 @@ class LoanScheduleGenerator:
             ("GRID", (0, 0), (-1, -1), 0.5, RULE),
             ("PADDING", (0, 0), (-1, -1), 5),
         ]))
-        return [
-            Paragraph(company_name, title_s),
-            Paragraph("Loan Amortization Schedule", sub_s),
-            Spacer(1, 3*mm),
-            HRFlowable(width="100%", thickness=2, color=BLUE),
-            Spacer(1, 4*mm),
-            info_tbl := tbl,
-            Spacer(1, 5*mm),
-        ]
+        items.append(tbl)
+        items.append(Spacer(1, 5*mm))
+        return items
 
     def _schedule_table(self, schedule):
         headers = ["#", "Due Date", "EMI (₹)", "Principal (₹)", "Interest (₹)", "Balance (₹)", "Status"]

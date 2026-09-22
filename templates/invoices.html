@@ -2,45 +2,77 @@
 {% block title %}Invoice Generator – FinTech SaaS{% endblock %}
 
 {% block content %}
-<div class="page-header">
-  <h1><i class="fa-solid fa-file-invoice me-2 text-warning"></i>Invoice Generator</h1>
-  <p class="text-muted">Generate GST-compliant invoices with line items, HSN codes &amp; auto-calculated totals</p>
+<div class="page-header d-flex align-items-center justify-content-between">
+  <div>
+    <h1><i class="fa-solid fa-file-invoice me-2 text-warning"></i>GST Invoice Generator</h1>
+    <p class="text-muted mb-0">Generate fully GST-compliant tax invoices with CGST/SGST/IGST split, HSN codes &amp; amount in words</p>
+  </div>
+  <button class="btn btn-outline-secondary btn-sm" id="loadSettingsBtn">
+    <i class="fa-solid fa-rotate me-1"></i>Load Company from Settings
+  </button>
 </div>
 
 <div class="row g-4">
 
-  <!-- Company info -->
+  <!-- Company info (Seller) -->
   <div class="col-lg-6">
     <div class="card shadow-sm">
       <div class="card-header fw-semibold"><i class="fa-solid fa-building me-2 text-primary"></i>Your Company (Seller)</div>
       <div class="card-body">
         <div class="row g-2">
-          <div class="col-12"><input class="form-control" id="co_name" placeholder="Company Name" required></div>
+          <div class="col-12"><input class="form-control" id="co_name" placeholder="Company Name *" value="{{ settings.company_name if settings else '' }}"></div>
           <div class="col-12"><textarea class="form-control" id="co_addr" rows="2" placeholder="Company Address"></textarea></div>
+          <div class="col-md-6"><input class="form-control" id="co_state" placeholder="State (e.g. Maharashtra)"></div>
           <div class="col-md-6"><input class="form-control" id="co_gst" placeholder="GSTIN (e.g. 27AABCU9603R1ZX)"></div>
-          <div class="col-md-6"><input class="form-control" id="co_phone" placeholder="Phone"></div>
-          <div class="col-12"><input class="form-control" id="co_email" placeholder="Email"></div>
+          <div class="col-md-6"><input class="form-control" id="co_phone" placeholder="Phone" value="{{ settings.sender_name if settings else '' }}"></div>
+          <div class="col-md-6"><input class="form-control" id="co_email" placeholder="Email" value="{{ settings.smtp_user if settings else '' }}"></div>
           <div class="col-md-4"><input class="form-control" id="co_bank" placeholder="Bank Name"></div>
           <div class="col-md-4"><input class="form-control" id="co_acct" placeholder="Account No"></div>
           <div class="col-md-4"><input class="form-control" id="co_ifsc" placeholder="IFSC Code"></div>
+          <div class="col-12"><input class="form-control" id="co_upi" placeholder="UPI ID (optional)"></div>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- Client info -->
+  <!-- Client info (Bill To) -->
   <div class="col-lg-6">
     <div class="card shadow-sm">
       <div class="card-header fw-semibold"><i class="fa-solid fa-user me-2 text-info"></i>Client (Bill To)</div>
       <div class="card-body">
         <div class="row g-2">
-          <div class="col-12"><input class="form-control" id="cl_name" placeholder="Client Name" required></div>
+          <div class="col-12"><input class="form-control" id="cl_name" placeholder="Client / Party Name *"></div>
           <div class="col-12"><textarea class="form-control" id="cl_addr" rows="2" placeholder="Client Address"></textarea></div>
-          <div class="col-md-6"><input class="form-control" id="cl_email" placeholder="Client Email" required></div>
+          <div class="col-md-6"><input class="form-control" id="cl_state" placeholder="Client State"></div>
           <div class="col-md-6"><input class="form-control" id="cl_gst" placeholder="Client GSTIN"></div>
+          <div class="col-md-6"><input class="form-control" id="cl_email" placeholder="Client Email"></div>
+          <div class="col-md-6"><input class="form-control" id="cl_phone" placeholder="Client Phone"></div>
+
+          <!-- Invoice meta -->
           <div class="col-md-4"><input class="form-control" id="inv_no" placeholder="Invoice No" value="INV-001"></div>
           <div class="col-md-4"><input class="form-control" id="inv_date" type="date"></div>
           <div class="col-md-4"><input class="form-control" id="due_date" type="date"></div>
+          <div class="col-md-6"><input class="form-control" id="po_no" placeholder="P.O. Number (optional)"></div>
+          <div class="col-md-6"><input class="form-control" id="place_of_supply" placeholder="Place of Supply"></div>
+
+          <!-- Supply type -->
+          <div class="col-12">
+            <label class="form-label fw-semibold mb-1">Supply Type</label>
+            <div class="d-flex gap-3">
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="supply_type" id="supplyIntra" value="intra" checked>
+                <label class="form-check-label" for="supplyIntra">
+                  <strong>Intra-State</strong> <small class="text-muted">(same state → CGST + SGST)</small>
+                </label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="supply_type" id="supplyInter" value="inter">
+                <label class="form-check-label" for="supplyInter">
+                  <strong>Inter-State</strong> <small class="text-muted">(different state → IGST)</small>
+                </label>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -49,7 +81,7 @@
   <!-- Line items -->
   <div class="col-12">
     <div class="card shadow-sm">
-      <div class="card-header fw-semibold d-flex justify-content-between">
+      <div class="card-header fw-semibold d-flex justify-content-between align-items-center">
         <span><i class="fa-solid fa-list me-2 text-success"></i>Line Items</span>
         <button class="btn btn-sm btn-outline-success" id="addItemBtn">
           <i class="fa-solid fa-plus me-1"></i>Add Item
@@ -60,34 +92,28 @@
           <table class="table table-bordered mb-0" id="itemsTable">
             <thead class="table-dark">
               <tr>
-                <th style="width:30%">Description</th>
-                <th style="width:12%">HSN Code</th>
-                <th style="width:10%">Qty</th>
-                <th style="width:14%">Rate (₹)</th>
-                <th style="width:10%">GST %</th>
-                <th style="width:12%">Total (₹)</th>
-                <th style="width:6%"></th>
+                <th style="width:26%">Description</th>
+                <th style="width:9%">HSN/SAC</th>
+                <th style="width:7%">Unit</th>
+                <th style="width:7%">Qty</th>
+                <th style="width:10%">Rate (₹)</th>
+                <th style="width:10%">Taxable (₹)</th>
+                <th style="width:8%">GST%</th>
+                <th id="taxColHdr" style="width:10%">CGST+SGST (₹)</th>
+                <th style="width:10%">Total (₹)</th>
+                <th style="width:3%"></th>
               </tr>
             </thead>
             <tbody id="itemsBody">
-              <tr class="item-row">
-                <td><input class="form-control form-control-sm item-desc" placeholder="Service/Product"></td>
-                <td><input class="form-control form-control-sm item-hsn" placeholder="9983"></td>
-                <td><input class="form-control form-control-sm item-qty" type="number" value="1" min="0" step="any"></td>
-                <td><input class="form-control form-control-sm item-rate" type="number" value="0" min="0" step="any"></td>
-                <td>
-                  <select class="form-select form-select-sm item-gst">
-                    <option>0</option><option>5</option><option selected>18</option><option>28</option>
-                  </select>
-                </td>
-                <td class="item-total fw-bold text-end pe-3">₹0.00</td>
-                <td><button class="btn btn-sm btn-outline-danger remove-item"><i class="fa-solid fa-trash"></i></button></td>
-              </tr>
+              <!-- first row injected by JS -->
             </tbody>
             <tfoot>
-              <tr class="table-light">
-                <td colspan="5" class="text-end fw-bold pe-3">Grand Total</td>
-                <td class="fw-bold text-end pe-3" id="grandTotal">₹0.00</td>
+              <tr class="table-light fw-bold">
+                <td colspan="5" class="text-end pe-3">Subtotal</td>
+                <td id="footTaxable" class="text-end pe-3">₹0.00</td>
+                <td></td>
+                <td id="footTax" class="text-end pe-3">₹0.00</td>
+                <td id="footGrand" class="text-end pe-3">₹0.00</td>
                 <td></td>
               </tr>
             </tfoot>
@@ -97,9 +123,28 @@
     </div>
   </div>
 
+  <!-- GST breakdown preview -->
+  <div class="col-12" id="gstBreakdownCard" style="display:none;">
+    <div class="card shadow-sm border-success-subtle">
+      <div class="card-header fw-semibold py-2">
+        <i class="fa-solid fa-receipt me-2 text-success"></i>GST Tax Summary (live preview)
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-sm table-bordered mb-0 small" id="gstSummaryTable">
+            <thead class="table-success">
+              <tr id="gstSummaryHdr"></tr>
+            </thead>
+            <tbody id="gstSummaryBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Actions -->
   <div class="col-12">
-    <button class="btn btn-warning" id="generateInvoiceBtn">
+    <button class="btn btn-warning fw-semibold px-4" id="generateInvoiceBtn">
       <i class="fa-solid fa-bolt me-2"></i>Generate Invoice PDF
     </button>
     <div id="invResult" class="mt-3"></div>
@@ -110,26 +155,43 @@
 
 {% block scripts %}
 <script>
-function calcRow(row) {
-  const qty  = parseFloat(row.querySelector('.item-qty').value) || 0;
-  const rate = parseFloat(row.querySelector('.item-rate').value) || 0;
-  const gst  = parseFloat(row.querySelector('.item-gst').value) || 0;
-  const base = qty * rate;
-  const total = base + base * gst / 100;
-  row.querySelector('.item-total').textContent = '₹' + total.toFixed(2);
-  return total;
+// ── Settings data ──────────────────────────────────────────────────────────────
+const _settings = {{ settings | tojson if settings else '{}' }};
+
+document.getElementById('loadSettingsBtn').addEventListener('click', () => {
+  if (_settings.company_name) document.getElementById('co_name').value = _settings.company_name;
+  if (_settings.smtp_user)    document.getElementById('co_email').value = _settings.smtp_user;
+});
+
+// ── Row template ──────────────────────────────────────────────────────────────
+function makeRow() {
+  const tr = document.createElement('tr');
+  tr.className = 'item-row';
+  tr.innerHTML = `
+    <td><input class="form-control form-control-sm item-desc" placeholder="Service / Product"></td>
+    <td><input class="form-control form-control-sm item-hsn" placeholder="9983"></td>
+    <td><input class="form-control form-control-sm item-unit" value="Nos"></td>
+    <td><input class="form-control form-control-sm item-qty" type="number" value="1" min="0" step="any"></td>
+    <td><input class="form-control form-control-sm item-rate" type="number" value="0" min="0" step="any"></td>
+    <td class="text-end pe-2 item-taxable fw-semibold">₹0.00</td>
+    <td>
+      <select class="form-select form-select-sm item-gst">
+        <option>0</option><option>5</option><option>12</option>
+        <option selected>18</option><option>28</option>
+      </select>
+    </td>
+    <td class="text-end pe-2 item-tax">₹0.00</td>
+    <td class="text-end pe-2 item-total fw-bold">₹0.00</td>
+    <td><button class="btn btn-sm btn-outline-danger remove-item" tabindex="-1"><i class="fa-solid fa-trash fa-sm"></i></button></td>`;
+  return tr;
 }
-function calcAll() {
-  let grand = 0;
-  document.querySelectorAll('.item-row').forEach(r => grand += calcRow(r));
-  document.getElementById('grandTotal').textContent = '₹' + grand.toFixed(2);
-}
-document.getElementById('itemsBody').addEventListener('input', calcAll);
+
+document.getElementById('itemsBody').appendChild(makeRow());
+calcAll();
+
 document.getElementById('addItemBtn').addEventListener('click', () => {
-  const row = document.querySelector('.item-row').cloneNode(true);
-  row.querySelectorAll('input').forEach(i => { if (i.type !== 'number') i.value = ''; else if(i.classList.contains('item-qty')) i.value = 1; else i.value = 0; });
-  row.querySelector('.item-total').textContent = '₹0.00';
-  document.getElementById('itemsBody').appendChild(row);
+  document.getElementById('itemsBody').appendChild(makeRow());
+  calcAll();
 });
 document.getElementById('itemsBody').addEventListener('click', e => {
   if (e.target.closest('.remove-item')) {
@@ -137,57 +199,144 @@ document.getElementById('itemsBody').addEventListener('click', e => {
     if (rows.length > 1) { e.target.closest('.item-row').remove(); calcAll(); }
   }
 });
+document.getElementById('itemsBody').addEventListener('input', calcAll);
+document.querySelectorAll('input[name="supply_type"]').forEach(r => r.addEventListener('change', calcAll));
 
-// Set today's date
+// ── Calc ──────────────────────────────────────────────────────────────────────
+function getSupply() {
+  return document.querySelector('input[name="supply_type"]:checked')?.value || 'intra';
+}
+
+function calcRow(row) {
+  const qty  = parseFloat(row.querySelector('.item-qty').value)  || 0;
+  const rate = parseFloat(row.querySelector('.item-rate').value) || 0;
+  const gst  = parseFloat(row.querySelector('.item-gst').value)  || 0;
+  const base = qty * rate;
+  const tax  = base * gst / 100;
+  row.querySelector('.item-taxable').textContent = '₹' + base.toFixed(2);
+  row.querySelector('.item-tax').textContent     = '₹' + tax.toFixed(2);
+  row.querySelector('.item-total').textContent   = '₹' + (base + tax).toFixed(2);
+  return { base, tax, gst };
+}
+
+function calcAll() {
+  const supply = getSupply();
+  let totalBase = 0, totalTax = 0;
+  const buckets = {};
+
+  document.querySelectorAll('.item-row').forEach(row => {
+    const { base, tax, gst } = calcRow(row);
+    totalBase += base; totalTax += tax;
+    if (!buckets[gst]) buckets[gst] = { base: 0, tax: 0 };
+    buckets[gst].base += base;
+    buckets[gst].tax  += tax;
+  });
+
+  document.getElementById('footTaxable').textContent = '₹' + totalBase.toFixed(2);
+  document.getElementById('footTax').textContent     = '₹' + totalTax.toFixed(2);
+  document.getElementById('footGrand').textContent   = '₹' + (totalBase + totalTax).toFixed(2);
+
+  // Update column header
+  document.getElementById('taxColHdr').textContent =
+    supply === 'intra' ? 'CGST+SGST (₹)' : 'IGST (₹)';
+
+  // GST breakdown table
+  const card = document.getElementById('gstBreakdownCard');
+  const hdrRow = document.getElementById('gstSummaryHdr');
+  const body = document.getElementById('gstSummaryBody');
+  body.innerHTML = '';
+  const rates = Object.keys(buckets).map(Number).sort((a, b) => a - b);
+  if (rates.length === 0 || totalBase === 0) { card.style.display = 'none'; return; }
+  card.style.display = '';
+
+  if (supply === 'intra') {
+    hdrRow.innerHTML = '<th>GST %</th><th>Taxable (₹)</th><th>CGST %</th><th>CGST (₹)</th><th>SGST %</th><th>SGST (₹)</th><th>Total GST (₹)</th>';
+    rates.forEach(r => {
+      const b = buckets[r]; const half = b.tax / 2;
+      body.innerHTML += `<tr>
+        <td>${r}%</td><td>₹${b.base.toFixed(2)}</td>
+        <td>${r/2}%</td><td>₹${half.toFixed(2)}</td>
+        <td>${r/2}%</td><td>₹${half.toFixed(2)}</td>
+        <td class="fw-semibold">₹${b.tax.toFixed(2)}</td></tr>`;
+    });
+  } else {
+    hdrRow.innerHTML = '<th>GST %</th><th>Taxable (₹)</th><th>IGST %</th><th>IGST (₹)</th><th>Total GST (₹)</th>';
+    rates.forEach(r => {
+      const b = buckets[r];
+      body.innerHTML += `<tr>
+        <td>${r}%</td><td>₹${b.base.toFixed(2)}</td>
+        <td>${r}%</td><td>₹${b.tax.toFixed(2)}</td>
+        <td class="fw-semibold">₹${b.tax.toFixed(2)}</td></tr>`;
+    });
+  }
+}
+
+// ── Set default dates ──────────────────────────────────────────────────────────
 document.getElementById('inv_date').value = new Date().toISOString().split('T')[0];
 const due = new Date(); due.setDate(due.getDate() + 30);
 document.getElementById('due_date').value = due.toISOString().split('T')[0];
 
+// ── Generate PDF ──────────────────────────────────────────────────────────────
 document.getElementById('generateInvoiceBtn').addEventListener('click', async () => {
   const items = [...document.querySelectorAll('.item-row')].map(r => ({
     description: r.querySelector('.item-desc').value,
     hsn:         r.querySelector('.item-hsn').value,
+    unit:        r.querySelector('.item-unit').value,
     qty:         r.querySelector('.item-qty').value,
     rate:        r.querySelector('.item-rate').value,
     gst_pct:     r.querySelector('.item-gst').value,
   }));
+  const supply = getSupply();
   const payload = {
     company: {
       name:       document.getElementById('co_name').value,
       address:    document.getElementById('co_addr').value,
+      state:      document.getElementById('co_state').value,
       gst_no:     document.getElementById('co_gst').value,
       phone:      document.getElementById('co_phone').value,
       email:      document.getElementById('co_email').value,
       bank_name:  document.getElementById('co_bank').value,
       account_no: document.getElementById('co_acct').value,
       ifsc:       document.getElementById('co_ifsc').value,
+      upi:        document.getElementById('co_upi').value,
     },
     client: {
-      name:         document.getElementById('cl_name').value,
-      address:      document.getElementById('cl_addr').value,
-      email:        document.getElementById('cl_email').value,
-      client_gst:   document.getElementById('cl_gst').value,
-      invoice_no:   document.getElementById('inv_no').value,
-      invoice_date: document.getElementById('inv_date').value,
-      due_date:     document.getElementById('due_date').value,
+      name:             document.getElementById('cl_name').value,
+      address:          document.getElementById('cl_addr').value,
+      state:            document.getElementById('cl_state').value,
+      email:            document.getElementById('cl_email').value,
+      phone:            document.getElementById('cl_phone').value,
+      client_gst:       document.getElementById('cl_gst').value,
+      invoice_no:       document.getElementById('inv_no').value,
+      invoice_date:     document.getElementById('inv_date').value,
+      due_date:         document.getElementById('due_date').value,
+      po_no:            document.getElementById('po_no').value,
+      place_of_supply:  document.getElementById('place_of_supply').value,
+      supply_type:      supply,
       items,
     }
   };
   const btn = document.getElementById('generateInvoiceBtn');
   btn.disabled = true;
-  const res  = await fetch('/generate-invoice', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+  const res  = await fetch('/generate-invoice', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
   const data = await res.json();
   btn.disabled = false;
   const r = document.getElementById('invResult');
   if (data.ok) {
-    r.innerHTML = `<div class="alert alert-success">
-      <i class="fa-solid fa-check me-1"></i> Invoice generated!
-      <a href="/download-output/${data.file}" class="btn btn-sm btn-success ms-3">
-        <i class="fa-solid fa-download me-1"></i>Download PDF
-      </a>
+    r.innerHTML = `<div class="alert alert-success d-flex align-items-center gap-3">
+      <i class="fa-solid fa-circle-check fa-lg"></i>
+      <div>Invoice <strong>${data.invoice_no}</strong> generated!
+        <a href="/download-output/${data.file}" class="btn btn-sm btn-success ms-3">
+          <i class="fa-solid fa-download me-1"></i>Download PDF
+        </a>
+      </div>
     </div>`;
   } else {
-    r.innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
+    r.innerHTML = `<div class="alert alert-danger"><i class="fa-solid fa-xmark me-2"></i>${data.error}</div>`;
   }
 });
 </script>

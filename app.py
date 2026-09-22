@@ -702,9 +702,14 @@ def invoices():
 def generate_invoice():
     from modules.invoice_generator import InvoiceGenerator
     data = request.get_json()
+    s = _load_settings()
+    logo = Path(s.get("logo_path", "")) if s.get("logo_path") else None
     try:
-        gen = InvoiceGenerator(OUTPUT_DIR)
+        gen = InvoiceGenerator(OUTPUT_DIR,
+                               brand_color=s.get("brand_color", ""),
+                               logo_path=logo)
         pdf = gen.generate(data["client"], data["company"])
+        _audit("INVOICE_GENERATED", data["client"].get("invoice_no", ""))
         return jsonify({"ok": True, "file": pdf.name,
                         "invoice_no": data["client"].get("invoice_no")})
     except Exception as exc:
@@ -724,8 +729,11 @@ def generate_loan_schedule():
     from modules.loan_schedule import LoanScheduleGenerator
     data = request.get_json()
     s = _load_settings()
+    logo = Path(s.get("logo_path", "")) if s.get("logo_path") else None
     try:
-        gen = LoanScheduleGenerator(OUTPUT_DIR)
+        gen = LoanScheduleGenerator(OUTPUT_DIR,
+                                    brand_color=s.get("brand_color", ""),
+                                    logo_path=logo)
         pdf = gen.generate(data, s["company_name"])
         return jsonify({"ok": True, "file": pdf.name})
     except Exception as exc:
@@ -745,12 +753,57 @@ def generate_portfolio():
     from modules.portfolio_report import PortfolioReportGenerator
     data = request.get_json()
     s = _load_settings()
+    logo = Path(s.get("logo_path", "")) if s.get("logo_path") else None
     try:
-        gen = PortfolioReportGenerator(OUTPUT_DIR)
+        gen = PortfolioReportGenerator(OUTPUT_DIR,
+                                       brand_color=s.get("brand_color", ""),
+                                       logo_path=logo)
         pdf = gen.generate(data, s["company_name"])
         return jsonify({"ok": True, "file": pdf.name})
     except Exception as exc:
         return jsonify({"ok": False, "error": str(exc)})
+
+
+@app.route("/merge-pdfs", methods=["POST"])
+@login_required
+def merge_pdfs():
+    try:
+        from pypdf import PdfWriter, PdfReader
+    except ImportError:
+        return jsonify({"error": "pypdf not installed — run: pip install pypdf"}), 500
+
+    data = request.get_json(force=True) or {}
+    account_nos = data.get("account_nos", [])
+    doc_type    = data.get("type", "statement")   # statement | invoice | loan | portfolio
+
+    prefix_map = {
+        "statement":  "statement_",
+        "invoice":    "invoice_",
+        "loan":       "loan_schedule_",
+        "portfolio":  "portfolio_",
+    }
+    prefix = prefix_map.get(doc_type, "statement_")
+
+    if account_nos:
+        pdfs = [OUTPUT_DIR / f"{prefix}{a}.pdf" for a in account_nos]
+        pdfs = [p for p in pdfs if p.exists()]
+    else:
+        pdfs = sorted(OUTPUT_DIR.glob(f"{prefix}*.pdf"))
+
+    if not pdfs:
+        return jsonify({"error": "No PDFs found to merge"}), 400
+
+    out = OUTPUT_DIR / f"merged_{doc_type}_{len(pdfs)}.pdf"
+    writer = PdfWriter()
+    for path in pdfs:
+        reader = PdfReader(str(path))
+        for page in reader.pages:
+            writer.add_page(page)
+    with open(out, "wb") as f:
+        writer.write(f)
+
+    _audit("PDF_MERGED", f"{len(pdfs)} {doc_type} PDFs → {out.name}")
+    return jsonify({"ok": True, "file": out.name, "count": len(pdfs)})
 
 
 @app.route("/download-output/<filename>")

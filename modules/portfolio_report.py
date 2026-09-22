@@ -8,6 +8,7 @@ Client dict:
       invested_amount, returns_pct
   }
 """
+import re
 from pathlib import Path
 import datetime
 
@@ -18,8 +19,15 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import cm, mm
 from reportlab.platypus import (
-    HRFlowable, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle,
+    HRFlowable, Image, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle,
 )
+
+_DEFAULT_BRAND = "#1E3A5F"
+
+def _lighten(hex_color: str, f: float = 0.40) -> HexColor:
+    h = hex_color.lstrip("#")
+    r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+    return HexColor(f"#{int(r+(255-r)*f):02x}{int(g+(255-g)*f):02x}{int(b+(255-b)*f):02x}")
 
 BLUE = HexColor("#1E3A5F")
 LIGHT = HexColor("#2E86AB")
@@ -37,9 +45,17 @@ def _s(name, **kw):
 
 
 class PortfolioReportGenerator:
-    def __init__(self, output_dir: Path):
+    def __init__(self, output_dir: Path,
+                 brand_color: str = "",
+                 logo_path: Path | None = None):
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
+        bc = brand_color if re.match(r"^#[0-9a-fA-F]{6}$", brand_color or "") else _DEFAULT_BRAND
+        self.logo_path = logo_path if logo_path and Path(logo_path).exists() else None
+        global BLUE, LIGHT, ACCENT
+        BLUE = HexColor(bc)
+        LIGHT = _lighten(bc, 0.40)
+        ACCENT = _lighten(bc, 0.90)
 
     def generate(self, client: dict, company_name: str) -> Path:
         acct = client.get("account_no", "PORT-001")
@@ -70,6 +86,14 @@ class PortfolioReportGenerator:
         as_of = client.get("as_of_date", datetime.date.today().strftime("%d %B %Y"))
         title_s = _s("t", font="Helvetica-Bold", size=17, textColor=BLUE, alignment=TA_CENTER)
         sub_s = _s("s", size=9, textColor=GRAY, alignment=TA_CENTER)
+        pre = []
+        if self.logo_path:
+            try:
+                img = Image(str(self.logo_path), width=5*cm, height=1.5*cm)
+                img.hAlign = "CENTER"
+                pre += [img, Spacer(1, 2*mm)]
+            except Exception:
+                pass
         info = [
             ["Investor Name", client.get("name", ""), "Account No", client.get("account_no", "")],
             ["PAN", client.get("pan", ""), "Risk Profile", client.get("risk_profile", "Moderate")],
@@ -84,7 +108,7 @@ class PortfolioReportGenerator:
             ("GRID", (0, 0), (-1, -1), 0.5, RULE),
             ("PADDING", (0, 0), (-1, -1), 5),
         ]))
-        return [
+        return pre + [
             Paragraph(company_name, title_s),
             Paragraph("Investment Portfolio Statement", sub_s),
             Spacer(1, 3*mm),
