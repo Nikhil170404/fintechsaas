@@ -1,0 +1,200 @@
+{% extends "base.html" %}
+{% block title %}Portfolio Report – FinTech SaaS{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1><i class="fa-solid fa-chart-pie me-2 text-purple"></i>Portfolio / Investment Report</h1>
+  <p class="text-muted">Generate a detailed investment portfolio statement with holdings, returns &amp; asset allocation</p>
+</div>
+
+<div class="row g-4">
+  <!-- Investor -->
+  <div class="col-lg-5">
+    <div class="card shadow-sm">
+      <div class="card-header fw-semibold"><i class="fa-solid fa-user me-2 text-primary"></i>Investor Details</div>
+      <div class="card-body">
+        <div class="row g-2">
+          <div class="col-12"><input class="form-control" id="inv_name" placeholder="Investor Name" required></div>
+          <div class="col-md-6"><input class="form-control" id="inv_email" type="email" placeholder="Email"></div>
+          <div class="col-md-6"><input class="form-control" id="inv_acct" placeholder="Account / Folio No"></div>
+          <div class="col-md-6"><input class="form-control" id="inv_pan" placeholder="PAN Number"></div>
+          <div class="col-md-6">
+            <select class="form-select" id="inv_risk">
+              <option>Conservative</option>
+              <option selected>Moderate</option>
+              <option>Aggressive</option>
+            </select>
+          </div>
+          <div class="col-12">
+            <label class="form-label">As of Date</label>
+            <input class="form-control" id="as_of" type="date">
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Summary preview -->
+  <div class="col-lg-7">
+    <div class="card shadow-sm h-100">
+      <div class="card-header fw-semibold"><i class="fa-solid fa-chart-bar me-2 text-success"></i>Live Portfolio Summary</div>
+      <div class="card-body">
+        <div class="row g-3 text-center" id="portfolioSummary">
+          <div class="col-4">
+            <div class="p-3 rounded" style="background:#EAF4FB">
+              <div class="small text-muted">Total Invested</div>
+              <div class="fw-bold fs-5 text-primary" id="sumInvested">₹0</div>
+            </div>
+          </div>
+          <div class="col-4">
+            <div class="p-3 rounded" style="background:#EAF7EF">
+              <div class="small text-muted">Current Value</div>
+              <div class="fw-bold fs-5 text-success" id="sumCurrent">₹0</div>
+            </div>
+          </div>
+          <div class="col-4">
+            <div class="p-3 rounded" style="background:#FEF9E7">
+              <div class="small text-muted">Gain / Loss</div>
+              <div class="fw-bold fs-5" id="sumGain">₹0</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Holdings -->
+  <div class="col-12">
+    <div class="card shadow-sm">
+      <div class="card-header fw-semibold d-flex justify-content-between">
+        <span><i class="fa-solid fa-list me-2 text-info"></i>Holdings</span>
+        <button class="btn btn-sm btn-outline-info" id="addHoldingBtn">
+          <i class="fa-solid fa-plus me-1"></i>Add Holding
+        </button>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-bordered mb-0" id="holdingsTable">
+            <thead class="table-dark">
+              <tr>
+                <th style="width:25%">Scheme / Asset Name</th>
+                <th style="width:14%">Category</th>
+                <th style="width:8%">Units</th>
+                <th style="width:10%">NAV (₹)</th>
+                <th style="width:12%">Invested (₹)</th>
+                <th style="width:12%">Current Value (₹)</th>
+                <th style="width:10%">Returns %</th>
+                <th style="width:5%"></th>
+              </tr>
+            </thead>
+            <tbody id="holdingsBody">
+              <tr class="holding-row">
+                <td><input class="form-control form-control-sm h-scheme" placeholder="Axis Bluechip Fund"></td>
+                <td>
+                  <select class="form-select form-select-sm h-cat">
+                    <option>Equity</option><option>Debt</option><option>Hybrid</option>
+                    <option>Gold</option><option>Real Estate</option><option>Stocks</option>
+                  </select>
+                </td>
+                <td><input class="form-control form-control-sm h-units" type="number" value="0" step="any"></td>
+                <td><input class="form-control form-control-sm h-nav" type="number" value="0" step="any"></td>
+                <td><input class="form-control form-control-sm h-invested" type="number" value="0" step="any"></td>
+                <td><input class="form-control form-control-sm h-current" type="number" value="0" step="any"></td>
+                <td class="h-returns fw-bold text-center">0.00%</td>
+                <td><button class="btn btn-sm btn-outline-danger remove-h"><i class="fa-solid fa-trash"></i></button></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12">
+    <button class="btn btn-primary" id="genPortfolioBtn">
+      <i class="fa-solid fa-bolt me-2"></i>Generate Portfolio Report PDF
+    </button>
+    <div id="portResult" class="mt-3"></div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function fmt(n) { return '₹' + n.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function calcReturns(row) {
+  const inv = parseFloat(row.querySelector('.h-invested').value)||0;
+  const cur = parseFloat(row.querySelector('.h-current').value)||0;
+  const ret = inv ? (cur-inv)/inv*100 : 0;
+  const el = row.querySelector('.h-returns');
+  el.textContent = (ret >= 0 ? '+' : '') + ret.toFixed(2) + '%';
+  el.style.color = ret >= 0 ? '#27ae60' : '#e74c3c';
+  return { inv, cur };
+}
+function calcSummary() {
+  let totalInv = 0, totalCur = 0;
+  document.querySelectorAll('.holding-row').forEach(r => {
+    const {inv, cur} = calcReturns(r);
+    totalInv += inv; totalCur += cur;
+  });
+  document.getElementById('sumInvested').textContent = fmt(totalInv);
+  document.getElementById('sumCurrent').textContent = fmt(totalCur);
+  const gain = totalCur - totalInv;
+  const el = document.getElementById('sumGain');
+  el.textContent = (gain>=0?'+':'')+fmt(gain);
+  el.style.color = gain >= 0 ? '#27ae60' : '#e74c3c';
+}
+document.getElementById('holdingsBody').addEventListener('input', calcSummary);
+document.getElementById('addHoldingBtn').addEventListener('click', () => {
+  const row = document.querySelector('.holding-row').cloneNode(true);
+  row.querySelectorAll('input[type=number]').forEach(i => i.value = 0);
+  row.querySelector('.h-scheme').value = '';
+  row.querySelector('.h-returns').textContent = '0.00%';
+  document.getElementById('holdingsBody').appendChild(row);
+});
+document.getElementById('holdingsBody').addEventListener('click', e => {
+  if (e.target.closest('.remove-h')) {
+    if (document.querySelectorAll('.holding-row').length > 1) {
+      e.target.closest('.holding-row').remove(); calcSummary();
+    }
+  }
+});
+document.getElementById('as_of').value = new Date().toISOString().split('T')[0];
+
+document.getElementById('genPortfolioBtn').addEventListener('click', async () => {
+  const btn = document.getElementById('genPortfolioBtn');
+  btn.disabled = true;
+  const holdings = [...document.querySelectorAll('.holding-row')].map(r => ({
+    scheme:          r.querySelector('.h-scheme').value,
+    category:        r.querySelector('.h-cat').value,
+    units:           r.querySelector('.h-units').value,
+    nav:             r.querySelector('.h-nav').value,
+    invested_amount: r.querySelector('.h-invested').value,
+    current_value:   r.querySelector('.h-current').value,
+  }));
+  const payload = {
+    name:         document.getElementById('inv_name').value,
+    email:        document.getElementById('inv_email').value,
+    account_no:   document.getElementById('inv_acct').value,
+    pan:          document.getElementById('inv_pan').value,
+    risk_profile: document.getElementById('inv_risk').value,
+    as_of_date:   document.getElementById('as_of').value,
+    holdings,
+  };
+  const res  = await fetch('/generate-portfolio', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+  const data = await res.json();
+  btn.disabled = false;
+  const r = document.getElementById('portResult');
+  if (data.ok) {
+    r.innerHTML = `<div class="alert alert-success">
+      <i class="fa-solid fa-check me-1"></i>Report generated!
+      <a href="/download-output/${data.file}" class="btn btn-sm btn-success ms-3">
+        <i class="fa-solid fa-download me-1"></i>Download PDF
+      </a>
+    </div>`;
+  } else {
+    r.innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
+  }
+});
+</script>
+{% endblock %}

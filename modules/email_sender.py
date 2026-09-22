@@ -20,14 +20,28 @@ class EmailSender:
         to_name: str,
         subject: str,
         body: str,
+        html_body: str | None = None,
         attachment_path: Path | None = None,
         attachment_name: str | None = None,
     ):
-        msg = MIMEMultipart()
+        msg = MIMEMultipart("alternative" if html_body else "mixed")
         msg["From"] = f"{self.sender_name} <{self.username}>"
         msg["To"] = f"{to_name} <{to_email}>"
         msg["Subject"] = subject
+
+        # Plain text (always included as fallback)
         msg.attach(MIMEText(body, "plain", "utf-8"))
+
+        # HTML version
+        if html_body:
+            msg.attach(MIMEText(html_body, "html", "utf-8"))
+            # Switch to mixed so we can also attach the PDF
+            mixed = MIMEMultipart("mixed")
+            mixed["From"] = msg["From"]
+            mixed["To"] = msg["To"]
+            mixed["Subject"] = msg["Subject"]
+            mixed.attach(msg)
+            msg = mixed
 
         if attachment_path:
             fname = attachment_name or Path(attachment_path).name

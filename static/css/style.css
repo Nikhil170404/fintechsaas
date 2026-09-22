@@ -65,6 +65,15 @@ body {
   margin: .5rem 0;
 }
 
+.sidebar-section {
+  padding: .4rem 1.25rem .2rem;
+  font-size: .7rem;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: rgba(255,255,255,.4);
+  font-weight: 600;
+}
+
 .sidebar-footer {
   padding: 1rem 1.25rem;
   border-top: 1px solid rgba(255,255,255,.1);

@@ -76,8 +76,23 @@
             <small class="text-muted">Available placeholder: <code>&#123;&#123;STATEMENT_PERIOD&#125;&#125;</code></small>
           </div>
           <div class="mb-3">
-            <label class="form-label">Email Body</label>
-            <textarea name="email_body" class="form-control font-monospace" rows="10">{{ cfg.email_body }}</textarea>
+            <label class="form-label">Email Type</label>
+            <select name="email_type" class="form-select" id="emailTypeSelect">
+              <option value="plain" {{ 'selected' if cfg.email_type == 'plain' }}>Plain Text</option>
+              <option value="html" {{ 'selected' if cfg.email_type == 'html' }}>HTML (branded)</option>
+            </select>
+          </div>
+          <div class="mb-3" id="plainBodyBlock" style="{{ 'display:none' if cfg.email_type == 'html' else '' }}">
+            <label class="form-label">Plain Text Body</label>
+            <textarea name="email_body" class="form-control font-monospace" rows="8">{{ cfg.email_body }}</textarea>
+          </div>
+          <div class="mb-3" id="htmlBodyBlock" style="{{ '' if cfg.email_type == 'html' else 'display:none' }}">
+            <label class="form-label">HTML Email Body
+              <small class="text-muted ms-2">(edit the HTML below — placeholders work here too)</small>
+            </label>
+            <textarea name="email_html" class="form-control font-monospace" rows="14" style="font-size:.8rem">{{ cfg.email_html }}</textarea>
+          </div>
+          <div>
             <small class="text-muted">
               Available placeholders:
               <code>&#123;&#123;CLIENT_NAME&#125;&#125;</code>
@@ -87,6 +102,7 @@
               <code>&#123;&#123;TOTAL_DEBIT&#125;&#125;</code>
               <code>&#123;&#123;TOTAL_CREDIT&#125;&#125;</code>
               <code>&#123;&#123;SENDER_NAME&#125;&#125;</code>
+              <code>&#123;&#123;COMPANY_NAME&#125;&#125;</code>
             </small>
           </div>
           <button type="submit" class="btn btn-success">
@@ -119,6 +135,11 @@
 
 {% block scripts %}
 <script>
+document.getElementById('emailTypeSelect')?.addEventListener('change', function() {
+  const html = this.value === 'html';
+  document.getElementById('plainBodyBlock').style.display = html ? 'none' : '';
+  document.getElementById('htmlBodyBlock').style.display  = html ? '' : 'none';
+});
 document.getElementById('testSmtpBtn')?.addEventListener('click', async () => {
   const email = document.getElementById('testEmail').value;
   const result = document.getElementById('testResult');

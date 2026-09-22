@@ -26,10 +26,21 @@
     <a href="{{ url_for('clients') }}" class="{{ 'active' if request.endpoint == 'clients' }}">
       <i class="fa-solid fa-users"></i> Clients &amp; Statements
     </a>
+    <div class="sidebar-divider"></div>
+    <div class="sidebar-section">MODULES</div>
+    <a href="{{ url_for('invoices') }}" class="{{ 'active' if request.endpoint == 'invoices' }}">
+      <i class="fa-solid fa-file-invoice"></i> Invoice Generator
+    </a>
+    <a href="{{ url_for('loans') }}" class="{{ 'active' if request.endpoint == 'loans' }}">
+      <i class="fa-solid fa-hand-holding-dollar"></i> Loan / EMI Schedule
+    </a>
+    <a href="{{ url_for('portfolio') }}" class="{{ 'active' if request.endpoint == 'portfolio' }}">
+      <i class="fa-solid fa-chart-pie"></i> Portfolio Report
+    </a>
+    <div class="sidebar-divider"></div>
     <a href="{{ url_for('settings') }}" class="{{ 'active' if request.endpoint == 'settings' }}">
       <i class="fa-solid fa-gear"></i> Settings
     </a>
-    <div class="sidebar-divider"></div>
     <a href="{{ url_for('download_template') }}" target="_blank">
       <i class="fa-solid fa-download"></i> Download Template
     </a>

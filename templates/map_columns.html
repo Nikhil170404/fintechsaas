@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+{% block title %}Map Columns – FinTech SaaS{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1><i class="fa-solid fa-table-columns me-2 text-primary"></i>Map Your Excel Columns</h1>
+  <p class="text-muted">
+    Your Excel has different column names — just tell us which column is which. We auto-detected the best matches.
+  </p>
+</div>
+
+<form method="POST" action="{{ url_for('save_mapping') }}">
+
+  <!-- Mode toggle -->
+  <div class="card shadow-sm mb-4">
+    <div class="card-header fw-semibold"><i class="fa-solid fa-layer-group me-2"></i>Excel Structure</div>
+    <div class="card-body">
+      <div class="row g-3 align-items-end">
+        <div class="col-md-4">
+          <label class="form-label fw-semibold">Layout</label>
+          <select name="flat_mode" id="flatModeSelect" class="form-select">
+            <option value="0" {{ 'selected' if not flat_hint }}>Two sheets (Clients + Transactions)</option>
+            <option value="1" {{ 'selected' if flat_hint }}>Single sheet (all-in-one flat)</option>
+          </select>
+          <small class="text-muted">Single sheet: every row is one transaction, client info repeats</small>
+        </div>
+        <div class="col-md-4" id="clientSheetRow">
+          <label class="form-label fw-semibold">Clients Sheet</label>
+          <select name="client_sheet" class="form-select">
+            {% for s in sheets %}
+            <option value="{{ s }}" {{ 'selected' if s == suggested_client_sheet }}>{{ s }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-4" id="txnSheetRow">
+          <label class="form-label fw-semibold">Transactions Sheet</label>
+          <select name="txn_sheet" class="form-select">
+            {% for s in sheets %}
+            <option value="{{ s }}" {{ 'selected' if s == suggested_txn_sheet }}>{{ s }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Client fields -->
+  <div class="row g-4 mb-4" id="clientFields">
+    <div class="col-12">
+      <div class="card shadow-sm">
+        <div class="card-header fw-semibold">
+          <i class="fa-solid fa-user me-2 text-primary"></i>Client Fields
+          <small class="text-muted ms-2">Map your Excel columns → system fields</small>
+        </div>
+        <div class="card-body">
+          <div class="row g-3">
+            {% for field, (label, desc) in client_fields.items() %}
+            <div class="col-md-6">
+              <label class="form-label">
+                {{ label }}
+                <small class="text-muted d-block fw-normal">{{ desc }}</small>
+              </label>
+              <select name="c_{{ field }}" class="form-select form-select-sm">
+                <option value="">— skip this field —</option>
+                {% for col in client_cols %}
+                <option value="{{ col }}" {{ 'selected' if client_suggest.get(field) == col }}>{{ col }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Transaction fields -->
+  <div class="row g-4 mb-4" id="txnFields">
+    <div class="col-12">
+      <div class="card shadow-sm">
+        <div class="card-header fw-semibold">
+          <i class="fa-solid fa-list-ul me-2 text-success"></i>Transaction Fields
+        </div>
+        <div class="card-body">
+          <div class="row g-3">
+            {% for field, (label, desc) in txn_fields.items() %}
+            <div class="col-md-6">
+              <label class="form-label">
+                {{ label }}
+                <small class="text-muted d-block fw-normal">{{ desc }}</small>
+              </label>
+              <select name="t_{{ field }}" class="form-select form-select-sm">
+                <option value="">— skip this field —</option>
+                {% for col in txn_cols %}
+                <option value="{{ col }}" {{ 'selected' if txn_suggest.get(field) == col }}>{{ col }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Preview -->
+  {% if preview_rows %}
+  <div class="card shadow-sm mb-4">
+    <div class="card-header fw-semibold">
+      <i class="fa-solid fa-eye me-2 text-info"></i>Data Preview (first 3 rows of {{ suggested_client_sheet }})
+    </div>
+    <div class="table-responsive">
+      <table class="table table-sm table-bordered mb-0 small">
+        <thead class="table-dark">
+          <tr>{% for col in preview_rows[0].keys() %}<th>{{ col }}</th>{% endfor %}</tr>
+        </thead>
+        <tbody>
+          {% for row in preview_rows %}
+          <tr>{% for v in row.values() %}<td>{{ v }}</td>{% endfor %}</tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="d-flex gap-3">
+    <button type="submit" class="btn btn-primary">
+      <i class="fa-solid fa-check me-2"></i>Apply Mapping &amp; Load Clients
+    </button>
+    <a href="{{ url_for('upload') }}" class="btn btn-outline-secondary">
+      <i class="fa-solid fa-arrow-left me-2"></i>Back to Upload
+    </a>
+  </div>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('flatModeSelect')?.addEventListener('change', function() {
+  const flat = this.value === '1';
+  document.getElementById('txnSheetRow').style.display = flat ? 'none' : '';
+});
+</script>
+{% endblock %}

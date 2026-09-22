@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+{% block title %}Loan Schedule – FinTech SaaS{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1><i class="fa-solid fa-hand-holding-dollar me-2 text-success"></i>Loan / EMI Schedule</h1>
+  <p class="text-muted">Generate a complete amortization schedule with monthly EMI breakdown</p>
+</div>
+
+<div class="row g-4">
+  <div class="col-lg-6">
+    <div class="card shadow-sm">
+      <div class="card-header fw-semibold"><i class="fa-solid fa-user me-2"></i>Borrower Details</div>
+      <div class="card-body">
+        <div class="row g-2">
+          <div class="col-12"><input class="form-control" id="b_name" placeholder="Borrower Name" required></div>
+          <div class="col-md-6"><input class="form-control" id="b_email" type="email" placeholder="Email"></div>
+          <div class="col-md-6"><input class="form-control" id="b_phone" placeholder="Phone"></div>
+          <div class="col-12"><input class="form-control" id="loan_no" placeholder="Loan Number" value="LOAN-001"></div>
+          <div class="col-12"><input class="form-control" id="disb_date" type="date" placeholder="Disbursement Date"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-6">
+    <div class="card shadow-sm">
+      <div class="card-header fw-semibold"><i class="fa-solid fa-calculator me-2 text-primary"></i>Loan Parameters</div>
+      <div class="card-body">
+        <div class="row g-2">
+          <div class="col-12">
+            <label class="form-label">Loan Amount (₹)</label>
+            <input class="form-control" id="loan_amt" type="number" value="500000" min="1">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Interest Rate (% p.a.)</label>
+            <input class="form-control" id="int_rate" type="number" value="12" min="0" step="0.1">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Tenure (months)</label>
+            <input class="form-control" id="tenure" type="number" value="24" min="1">
+          </div>
+          <div class="col-12">
+            <label class="form-label">First EMI Date</label>
+            <input class="form-control" id="start_date" type="date">
+          </div>
+        </div>
+
+        <!-- Live EMI preview -->
+        <div class="mt-3 p-3 rounded" style="background:#EAF4FB">
+          <div class="row text-center">
+            <div class="col">
+              <div class="small text-muted">Monthly EMI</div>
+              <div class="fw-bold text-primary fs-5" id="previewEmi">—</div>
+            </div>
+            <div class="col">
+              <div class="small text-muted">Total Payment</div>
+              <div class="fw-bold" id="previewTotal">—</div>
+            </div>
+            <div class="col">
+              <div class="small text-muted">Total Interest</div>
+              <div class="fw-bold text-danger" id="previewInterest">—</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12">
+    <button class="btn btn-success" id="genLoanBtn">
+      <i class="fa-solid fa-bolt me-2"></i>Generate Amortization Schedule PDF
+    </button>
+    <div id="loanResult" class="mt-3"></div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function fmt(n) { return '₹' + n.toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2}); }
+function calcEmi(p, r, n) {
+  const mr = r / 12 / 100;
+  if (mr === 0) return p / n;
+  return p * mr * Math.pow(1+mr,n) / (Math.pow(1+mr,n)-1);
+}
+function updatePreview() {
+  const p = parseFloat(document.getElementById('loan_amt').value)||0;
+  const r = parseFloat(document.getElementById('int_rate').value)||0;
+  const n = parseInt(document.getElementById('tenure').value)||0;
+  if (!p||!n) return;
+  const emi = calcEmi(p,r,n);
+  const total = emi*n;
+  document.getElementById('previewEmi').textContent = fmt(emi);
+  document.getElementById('previewTotal').textContent = fmt(total);
+  document.getElementById('previewInterest').textContent = fmt(total-p);
+}
+['loan_amt','int_rate','tenure'].forEach(id => document.getElementById(id).addEventListener('input', updatePreview));
+
+const today = new Date().toISOString().split('T')[0];
+document.getElementById('disb_date').value = today;
+const nxt = new Date(); nxt.setMonth(nxt.getMonth()+1);
+document.getElementById('start_date').value = nxt.toISOString().split('T')[0];
+updatePreview();
+
+document.getElementById('genLoanBtn').addEventListener('click', async () => {
+  const btn = document.getElementById('genLoanBtn');
+  btn.disabled = true;
+  const payload = {
+    borrower_name:     document.getElementById('b_name').value,
+    email:             document.getElementById('b_email').value,
+    phone:             document.getElementById('b_phone').value,
+    loan_no:           document.getElementById('loan_no').value,
+    disbursement_date: document.getElementById('disb_date').value,
+    loan_amount:       document.getElementById('loan_amt').value,
+    interest_rate:     document.getElementById('int_rate').value,
+    tenure_months:     document.getElementById('tenure').value,
+    start_date:        document.getElementById('start_date').value,
+  };
+  const res  = await fetch('/generate-loan-schedule', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+  const data = await res.json();
+  btn.disabled = false;
+  const r = document.getElementById('loanResult');
+  if (data.ok) {
+    r.innerHTML = `<div class="alert alert-success">
+      <i class="fa-solid fa-check me-1"></i>Schedule generated!
+      <a href="/download-output/${data.file}" class="btn btn-sm btn-success ms-3">
+        <i class="fa-solid fa-download me-1"></i>Download PDF
+      </a>
+    </div>`;
+  } else {
+    r.innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
+  }
+});
+</script>
+{% endblock %}
