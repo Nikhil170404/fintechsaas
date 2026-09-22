@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% block title %}Dashboard – FinTech SaaS{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1><i class="fa-solid fa-gauge-high me-2 text-primary"></i>Dashboard</h1>
+  <p class="text-muted">Client statement generation &amp; email dispatch system</p>
+</div>
+
+<!-- Stats -->
+<div class="row g-3 mb-4">
+  <div class="col-sm-6 col-lg-3">
+    <div class="stat-card">
+      <div class="stat-icon bg-primary-soft text-primary"><i class="fa-solid fa-users"></i></div>
+      <div class="stat-body">
+        <div class="stat-value">{{ client_count }}</div>
+        <div class="stat-label">Clients Loaded</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-lg-3">
+    <div class="stat-card">
+      <div class="stat-icon bg-success-soft text-success"><i class="fa-solid fa-file-pdf"></i></div>
+      <div class="stat-body">
+        <div class="stat-value">{{ pdf_count }}</div>
+        <div class="stat-label">PDFs Generated</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-lg-3">
+    <div class="stat-card">
+      <div class="stat-icon bg-warning-soft text-warning"><i class="fa-solid fa-envelope"></i></div>
+      <div class="stat-body">
+        <div class="stat-value">—</div>
+        <div class="stat-label">Emails Sent</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-lg-3">
+    <div class="stat-card">
+      <div class="stat-icon bg-info-soft text-info"><i class="fa-solid fa-clock-rotate-left"></i></div>
+      <div class="stat-body">
+        <div class="stat-value" id="current-time">—</div>
+        <div class="stat-label">Current Time</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Workflow steps -->
+<div class="card shadow-sm mb-4">
+  <div class="card-header fw-semibold"><i class="fa-solid fa-list-check me-2"></i>How It Works</div>
+  <div class="card-body">
+    <div class="workflow-steps">
+      <div class="step {{ 'done' if client_count > 0 else '' }}">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <div class="step-title">Upload Excel</div>
+          <div class="step-desc">Import client master + transactions from your Excel file</div>
+          <a href="{{ url_for('upload') }}" class="btn btn-sm btn-outline-primary mt-2">
+            <i class="fa-solid fa-upload me-1"></i>Upload Now
+          </a>
+        </div>
+      </div>
+      <div class="step-arrow"><i class="fa-solid fa-chevron-right"></i></div>
+      <div class="step {{ 'done' if pdf_count > 0 else '' }}">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <div class="step-title">Generate PDFs</div>
+          <div class="step-desc">Auto-generate personalized account statements for every client</div>
+          <a href="{{ url_for('clients') }}" class="btn btn-sm btn-outline-success mt-2">
+            <i class="fa-solid fa-file-pdf me-1"></i>Generate
+          </a>
+        </div>
+      </div>
+      <div class="step-arrow"><i class="fa-solid fa-chevron-right"></i></div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <div class="step-title">Send Emails</div>
+          <div class="step-desc">Dispatch statements to all clients via email in one click</div>
+          <a href="{{ url_for('clients') }}" class="btn btn-sm btn-outline-warning mt-2">
+            <i class="fa-solid fa-paper-plane me-1"></i>Send
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Quick tips -->
+<div class="row g-3">
+  <div class="col-md-6">
+    <div class="card shadow-sm h-100">
+      <div class="card-header fw-semibold"><i class="fa-solid fa-lightbulb me-2 text-warning"></i>Quick Tips</div>
+      <ul class="list-group list-group-flush">
+        <li class="list-group-item"><i class="fa-solid fa-check text-success me-2"></i>Download the Excel template to see the required format</li>
+        <li class="list-group-item"><i class="fa-solid fa-check text-success me-2"></i>Keep <strong>Account No</strong> consistent across both sheets</li>
+        <li class="list-group-item"><i class="fa-solid fa-check text-success me-2"></i>Balance column = running balance after each transaction</li>
+        <li class="list-group-item"><i class="fa-solid fa-check text-success me-2"></i>Configure SMTP in Settings before sending emails</li>
+        <li class="list-group-item"><i class="fa-solid fa-check text-success me-2"></i>Upload a Word template to use your own branded design</li>
+      </ul>
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="card shadow-sm h-100">
+      <div class="card-header fw-semibold"><i class="fa-solid fa-star me-2 text-primary"></i>Features</div>
+      <ul class="list-group list-group-flush">
+        <li class="list-group-item"><i class="fa-solid fa-file-pdf text-danger me-2"></i>Professional PDF statements with transaction tables</li>
+        <li class="list-group-item"><i class="fa-solid fa-file-word text-primary me-2"></i>Word template support with dynamic data merge</li>
+        <li class="list-group-item"><i class="fa-solid fa-envelope text-info me-2"></i>Bulk email with personalized PDF attachments</li>
+        <li class="list-group-item"><i class="fa-solid fa-download text-success me-2"></i>Download individual or all PDFs as ZIP</li>
+        <li class="list-group-item"><i class="fa-solid fa-palette text-warning me-2"></i>Company branding via Settings</li>
+      </ul>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,251 @@
+/* ── Variables ──────────────────────────────────────────────────────────────── */
+:root {
+  --sidebar-w: 240px;
+  --brand-blue: #1e3a5f;
+  --brand-light: #2e86ab;
+  --bg-main: #f4f6fb;
+  --bg-card: #ffffff;
+  --text-main: #2c3e50;
+  --text-muted: #7f8c8d;
+  --border: #dde2ec;
+  --shadow: 0 2px 8px rgba(30,58,95,.08);
+}
+
+/* ── Base ───────────────────────────────────────────────────────────────────── */
+body {
+  background: var(--bg-main);
+  color: var(--text-main);
+  font-family: 'Segoe UI', Arial, sans-serif;
+  margin: 0;
+  padding: 0;
+}
+
+/* ── Sidebar ────────────────────────────────────────────────────────────────── */
+.sidebar {
+  position: fixed;
+  top: 0; left: 0;
+  width: var(--sidebar-w);
+  height: 100vh;
+  background: var(--brand-blue);
+  z-index: 100;
+  overflow-y: auto;
+}
+
+.sidebar-brand {
+  display: flex;
+  align-items: center;
+  padding: 1.25rem 1.25rem 1rem;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #fff;
+  border-bottom: 1px solid rgba(255,255,255,.12);
+}
+
+.sidebar-nav a {
+  display: flex;
+  align-items: center;
+  gap: .65rem;
+  padding: .65rem 1.25rem;
+  color: rgba(255,255,255,.75);
+  text-decoration: none;
+  font-size: .9rem;
+  transition: all .15s;
+}
+
+.sidebar-nav a:hover,
+.sidebar-nav a.active {
+  background: rgba(255,255,255,.12);
+  color: #fff;
+  border-left: 3px solid var(--brand-light);
+  padding-left: calc(1.25rem - 3px);
+}
+
+.sidebar-divider {
+  border-top: 1px solid rgba(255,255,255,.1);
+  margin: .5rem 0;
+}
+
+.sidebar-footer {
+  padding: 1rem 1.25rem;
+  border-top: 1px solid rgba(255,255,255,.1);
+  font-size: .75rem;
+}
+
+/* ── Main content ───────────────────────────────────────────────────────────── */
+.main-content {
+  margin-left: var(--sidebar-w);
+  padding: 2rem;
+  min-height: 100vh;
+}
+
+.page-header {
+  margin-bottom: 1.5rem;
+}
+
+.page-header h1 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-bottom: .25rem;
+}
+
+.flash-container {
+  margin-bottom: 1rem;
+}
+
+/* ── Stat cards ─────────────────────────────────────────────────────────────── */
+.stat-card {
+  background: var(--bg-card);
+  border-radius: .75rem;
+  padding: 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  box-shadow: var(--shadow);
+}
+
+.stat-icon {
+  width: 52px; height: 52px;
+  border-radius: .6rem;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.4rem;
+  flex-shrink: 0;
+}
+
+.stat-value {
+  font-size: 1.75rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.stat-label {
+  font-size: .8rem;
+  color: var(--text-muted);
+  margin-top: .2rem;
+}
+
+.bg-primary-soft { background: #e8f0fe; }
+.bg-success-soft { background: #e6f4ea; }
+.bg-warning-soft { background: #fef9e7; }
+.bg-info-soft    { background: #e3f4fa; }
+
+/* ── Workflow steps ─────────────────────────────────────────────────────────── */
+.workflow-steps {
+  display: flex;
+  align-items: flex-start;
+  gap: .75rem;
+  flex-wrap: wrap;
+}
+
+.step {
+  flex: 1;
+  min-width: 160px;
+  display: flex;
+  gap: .75rem;
+  padding: 1rem;
+  border-radius: .6rem;
+  background: var(--bg-main);
+  border: 1px solid var(--border);
+}
+
+.step.done {
+  border-color: #27ae60;
+  background: #eafaf1;
+}
+
+.step-num {
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  background: var(--brand-light);
+  color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700;
+  font-size: .9rem;
+  flex-shrink: 0;
+}
+
+.step.done .step-num {
+  background: #27ae60;
+}
+
+.step-title { font-weight: 600; font-size: .9rem; }
+.step-desc  { font-size: .8rem; color: var(--text-muted); margin-top: .2rem; }
+
+.step-arrow {
+  color: var(--text-muted);
+  align-self: center;
+  font-size: 1.1rem;
+  padding-top: .5rem;
+}
+
+/* ── Drop zone ──────────────────────────────────────────────────────────────── */
+.drop-zone {
+  border: 2px dashed var(--brand-light);
+  border-radius: .75rem;
+  padding: 2.5rem 2rem;
+  text-align: center;
+  background: #f8fbfe;
+  transition: all .2s;
+}
+
+.drop-zone.drag-over {
+  border-color: var(--brand-blue);
+  background: #eaf4fb;
+}
+
+.drop-zone.has-file {
+  border-style: solid;
+  border-color: #27ae60;
+  background: #eafaf1;
+}
+
+.drop-icon {
+  font-size: 3rem;
+  color: var(--brand-light);
+  margin-bottom: .5rem;
+}
+
+.drop-text {
+  font-weight: 600;
+  margin-bottom: .25rem;
+}
+
+.file-preview {
+  display: flex;
+  align-items: center;
+  padding: .6rem 1rem;
+  background: #eafaf1;
+  border-radius: .5rem;
+  border: 1px solid #a9dfbf;
+}
+
+/* ── Cards ──────────────────────────────────────────────────────────────────── */
+.card {
+  border-color: var(--border);
+  border-radius: .75rem;
+}
+
+.card-header {
+  background: #f8f9fc;
+  border-bottom: 1px solid var(--border);
+  padding: .85rem 1.25rem;
+  font-size: .9rem;
+}
+
+/* ── Tables ─────────────────────────────────────────────────────────────────── */
+.table > :not(caption) > * > * {
+  padding: .65rem 1rem;
+}
+
+/* ── Responsive ─────────────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .sidebar {
+    width: 60px;
+    overflow: hidden;
+  }
+  .sidebar-brand span,
+  .sidebar-nav a span,
+  .sidebar-footer { display: none; }
+  .sidebar-nav a { justify-content: center; padding: .8rem; }
+  .main-content { margin-left: 60px; padding: 1rem; }
+  .step-arrow { display: none; }
+}

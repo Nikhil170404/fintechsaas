@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+{% block title %}Settings – FinTech SaaS{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1><i class="fa-solid fa-gear me-2"></i>Settings</h1>
+  <p class="text-muted">Configure company branding, SMTP &amp; email templates</p>
+</div>
+
+<form method="POST">
+  <div class="row g-4">
+
+    <!-- Company branding -->
+    <div class="col-lg-6">
+      <div class="card shadow-sm h-100">
+        <div class="card-header fw-semibold">
+          <i class="fa-solid fa-building me-2 text-primary"></i>Company Branding
+        </div>
+        <div class="card-body">
+          <div class="mb-3">
+            <label class="form-label">Company Name <span class="text-muted small">(shown on PDFs)</span></label>
+            <input type="text" name="company_name" class="form-control" value="{{ cfg.company_name }}">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Sender Name <span class="text-muted small">(shown in email From:)</span></label>
+            <input type="text" name="sender_name" class="form-control" value="{{ cfg.sender_name }}">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SMTP config -->
+    <div class="col-lg-6">
+      <div class="card shadow-sm h-100">
+        <div class="card-header fw-semibold">
+          <i class="fa-solid fa-server me-2 text-warning"></i>SMTP Configuration
+        </div>
+        <div class="card-body">
+          <div class="mb-3">
+            <label class="form-label">SMTP Host</label>
+            <input type="text" name="smtp_host" class="form-control" value="{{ cfg.smtp_host }}" placeholder="smtp.gmail.com">
+            <small class="text-muted">Gmail: smtp.gmail.com &bull; Outlook: smtp.office365.com</small>
+          </div>
+          <div class="row g-2">
+            <div class="col-4">
+              <label class="form-label">Port</label>
+              <input type="number" name="smtp_port" class="form-control" value="{{ cfg.smtp_port }}" placeholder="587">
+              <small class="text-muted">587 (TLS) or 465 (SSL)</small>
+            </div>
+            <div class="col-8">
+              <label class="form-label">Email / Username</label>
+              <input type="email" name="smtp_user" class="form-control" value="{{ cfg.smtp_user }}" placeholder="you@company.com">
+            </div>
+          </div>
+          <div class="mb-3 mt-3">
+            <label class="form-label">App Password</label>
+            <input type="password" name="smtp_pass" class="form-control" value="{{ cfg.smtp_pass }}" placeholder="Gmail App Password or SMTP password">
+            <small class="text-muted">
+              For Gmail: use an <a href="https://myaccount.google.com/apppasswords" target="_blank">App Password</a> (not your login password).
+            </small>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Email template -->
+    <div class="col-12">
+      <div class="card shadow-sm">
+        <div class="card-header fw-semibold">
+          <i class="fa-solid fa-envelope me-2 text-info"></i>Email Template
+        </div>
+        <div class="card-body">
+          <div class="mb-3">
+            <label class="form-label">Subject Line</label>
+            <input type="text" name="email_subject" class="form-control" value="{{ cfg.email_subject }}">
+            <small class="text-muted">Available placeholder: <code>&#123;&#123;STATEMENT_PERIOD&#125;&#125;</code></small>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Email Body</label>
+            <textarea name="email_body" class="form-control font-monospace" rows="10">{{ cfg.email_body }}</textarea>
+            <small class="text-muted">
+              Available placeholders:
+              <code>&#123;&#123;CLIENT_NAME&#125;&#125;</code>
+              <code>&#123;&#123;ACCOUNT_NO&#125;&#125;</code>
+              <code>&#123;&#123;STATEMENT_PERIOD&#125;&#125;</code>
+              <code>&#123;&#123;CLOSING_BALANCE&#125;&#125;</code>
+              <code>&#123;&#123;TOTAL_DEBIT&#125;&#125;</code>
+              <code>&#123;&#123;TOTAL_CREDIT&#125;&#125;</code>
+              <code>&#123;&#123;SENDER_NAME&#125;&#125;</code>
+            </small>
+          </div>
+          <button type="submit" class="btn btn-success">
+            <i class="fa-solid fa-floppy-disk me-2"></i>Save Settings
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Test connection -->
+    <div class="col-12">
+      <div class="card shadow-sm border-info">
+        <div class="card-header fw-semibold text-info">
+          <i class="fa-solid fa-flask me-2"></i>Test SMTP Connection
+        </div>
+        <div class="card-body">
+          <p class="text-muted small">Send a test email to verify your SMTP settings are correct.</p>
+          <div class="input-group" style="max-width:420px">
+            <input type="email" id="testEmail" class="form-control" placeholder="Enter test email address">
+            <button class="btn btn-outline-info" type="button" id="testSmtpBtn">Send Test</button>
+          </div>
+          <div id="testResult" class="mt-2"></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('testSmtpBtn')?.addEventListener('click', async () => {
+  const email = document.getElementById('testEmail').value;
+  const result = document.getElementById('testResult');
+  if (!email) { result.innerHTML = '<small class="text-danger">Enter an email address</small>'; return; }
+
+  document.getElementById('testSmtpBtn').disabled = true;
+  result.innerHTML = '<small class="text-muted"><i class="fa-solid fa-spinner fa-spin me-1"></i>Sending…</small>';
+
+  const fd = new FormData();
+  fd.append('test_email', email);
+  const res = await fetch('/test-smtp', { method: 'POST', body: fd });
+  const data = await res.json();
+  document.getElementById('testSmtpBtn').disabled = false;
+
+  if (data.ok) {
+    result.innerHTML = '<small class="text-success"><i class="fa-solid fa-check me-1"></i>Test email sent successfully!</small>';
+  } else {
+    result.innerHTML = `<small class="text-danger"><i class="fa-solid fa-xmark me-1"></i>${data.error}</small>`;
+  }
+});
+</script>
+{% endblock %}

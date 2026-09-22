@@ -1,0 +1,268 @@
+{% extends "base.html" %}
+{% block title %}Clients & Statements – FinTech SaaS{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex align-items-center justify-content-between flex-wrap gap-2">
+  <div>
+    <h1><i class="fa-solid fa-users me-2 text-primary"></i>Clients &amp; Statements</h1>
+    <p class="text-muted mb-0">{{ clients|length }} client(s) loaded</p>
+  </div>
+  <div class="d-flex gap-2 flex-wrap">
+    <a href="{{ url_for('upload') }}" class="btn btn-outline-secondary btn-sm">
+      <i class="fa-solid fa-upload me-1"></i>Re-upload
+    </a>
+    <a href="{{ url_for('download_all') }}" class="btn btn-outline-primary btn-sm">
+      <i class="fa-solid fa-file-zipper me-1"></i>Download All PDFs
+    </a>
+  </div>
+</div>
+
+{% if not clients %}
+<div class="alert alert-info">
+  <i class="fa-solid fa-circle-info me-2"></i>
+  No clients loaded yet. <a href="{{ url_for('upload') }}">Upload an Excel file</a> to get started.
+</div>
+{% else %}
+
+<!-- Generate panel -->
+<div class="card shadow-sm mb-4" id="generatePanel">
+  <div class="card-header fw-semibold d-flex align-items-center gap-2" style="cursor:pointer" data-bs-toggle="collapse" data-bs-target="#generateBody">
+    <i class="fa-solid fa-file-pdf text-danger"></i> Step 1 — Generate PDF Statements
+    <i class="fa-solid fa-chevron-down ms-auto small"></i>
+  </div>
+  <div class="collapse show" id="generateBody">
+    <div class="card-body">
+      <div class="row g-3">
+        <div class="col-md-4">
+          <label class="form-label fw-semibold">Company Name</label>
+          <input type="text" id="gen_company" class="form-control" value="{{ config.COMPANY_NAME if config else 'FinTech Solutions Pvt Ltd' }}">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label fw-semibold">Statement Period</label>
+          <input type="text" id="gen_period" class="form-control" placeholder="e.g. August 2026">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label fw-semibold">Mode</label>
+          <select id="gen_mode" class="form-select">
+            <option value="auto">Auto PDF (ReportLab)</option>
+            <option value="template" {{ 'disabled' if not has_template }}>Word Template{{ ' (no template uploaded)' if not has_template }}</option>
+          </select>
+        </div>
+      </div>
+      <button class="btn btn-danger mt-3" id="generateAllBtn">
+        <i class="fa-solid fa-bolt me-2"></i>Generate All Statements
+      </button>
+      <div id="genProgress" class="mt-3 d-none">
+        <div class="progress"><div class="progress-bar progress-bar-striped progress-bar-animated bg-danger" style="width:100%"></div></div>
+        <small class="text-muted">Generating PDFs…</small>
+      </div>
+      <div id="genResults" class="mt-3"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Email panel -->
+<div class="card shadow-sm mb-4" id="emailPanel">
+  <div class="card-header fw-semibold d-flex align-items-center gap-2" style="cursor:pointer" data-bs-toggle="collapse" data-bs-target="#emailBody">
+    <i class="fa-solid fa-paper-plane text-info"></i> Step 2 — Send Emails to Clients
+    <i class="fa-solid fa-chevron-down ms-auto small"></i>
+  </div>
+  <div class="collapse show" id="emailBody">
+    <div class="card-body">
+      <div class="alert alert-warning py-2">
+        <i class="fa-solid fa-triangle-exclamation me-2"></i>
+        Make sure you have <strong>generated PDFs first</strong> and configured SMTP in <a href="{{ url_for('settings') }}">Settings</a>.
+      </div>
+      <div class="row g-3 mb-3">
+        <div class="col-md-6">
+          <label class="form-label fw-semibold">Statement Period (for email subject)</label>
+          <input type="text" id="email_period" class="form-control" placeholder="e.g. August 2026">
+        </div>
+        <div class="col-md-6 d-flex align-items-end">
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="selectAll" checked>
+            <label class="form-check-label" for="selectAll">Select all clients</label>
+          </div>
+        </div>
+      </div>
+      <button class="btn btn-info text-white" id="sendEmailsBtn">
+        <i class="fa-solid fa-paper-plane me-2"></i>Send Emails Now
+      </button>
+      <div id="emailProgress" class="mt-3 d-none">
+        <div class="progress"><div class="progress-bar progress-bar-striped progress-bar-animated bg-info" style="width:100%"></div></div>
+        <small class="text-muted">Sending emails…</small>
+      </div>
+      <div id="emailResults" class="mt-3"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Word template upload -->
+<div class="card shadow-sm mb-4">
+  <div class="card-header fw-semibold">
+    <i class="fa-solid fa-file-word text-primary me-2"></i>Word Template (Optional)
+  </div>
+  <div class="card-body">
+    <p class="text-muted small mb-3">
+      Upload a <code>.docx</code> template with placeholders like <code>&#123;&#123;CLIENT_NAME&#125;&#125;</code>,
+      <code>&#123;&#123;ACCOUNT_NO&#125;&#125;</code>, <code>&#123;&#123;TOTAL_DEBIT&#125;&#125;</code> etc.
+      Add a table with headers <strong>Date | Description | Reference | Debit | Credit | Balance</strong>
+      and the system will fill in your transactions automatically.
+      {% if has_template %}
+        <span class="badge bg-success ms-2"><i class="fa-solid fa-check me-1"></i>Template uploaded</span>
+      {% endif %}
+    </p>
+    <form method="POST" action="{{ url_for('upload_template') }}" enctype="multipart/form-data" class="d-flex gap-2">
+      <input type="file" name="word_template" class="form-control form-control-sm" accept=".docx" required style="max-width:320px">
+      <button class="btn btn-primary btn-sm">Upload Template</button>
+    </form>
+  </div>
+</div>
+
+<!-- Clients table -->
+<div class="card shadow-sm">
+  <div class="card-header fw-semibold">
+    <i class="fa-solid fa-table me-2"></i>Client List
+  </div>
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0" id="clientsTable">
+      <thead class="table-dark">
+        <tr>
+          <th><input type="checkbox" id="checkAll" class="form-check-input" checked></th>
+          <th>Account No</th>
+          <th>Name</th>
+          <th>Email</th>
+          <th>Type</th>
+          <th class="text-end">Opening Balance</th>
+          <th class="text-center">Transactions</th>
+          <th class="text-center">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in clients %}
+        <tr>
+          <td><input type="checkbox" class="form-check-input client-check" value="{{ c.account_no }}" checked></td>
+          <td><code>{{ c.account_no }}</code></td>
+          <td><strong>{{ c.name }}</strong></td>
+          <td><small>{{ c.email }}</small></td>
+          <td><span class="badge bg-secondary">{{ c.account_type }}</span></td>
+          <td class="text-end">₹{{ '{:,.2f}'.format(c.opening_balance) }}</td>
+          <td class="text-center">
+            <span class="badge bg-primary">{{ c.transactions|length }}</span>
+          </td>
+          <td class="text-center">
+            <a href="{{ url_for('download', account_no=c.account_no) }}" class="btn btn-sm btn-outline-danger" title="Download PDF">
+              <i class="fa-solid fa-file-pdf"></i>
+            </a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Check all toggle
+const checkAll = document.getElementById('checkAll');
+const selectAll = document.getElementById('selectAll');
+if (checkAll) {
+  checkAll.addEventListener('change', () => {
+    document.querySelectorAll('.client-check').forEach(c => c.checked = checkAll.checked);
+  });
+}
+
+// Generate All
+document.getElementById('generateAllBtn')?.addEventListener('click', async () => {
+  const btn = document.getElementById('generateAllBtn');
+  const progress = document.getElementById('genProgress');
+  const results = document.getElementById('genResults');
+  const period = document.getElementById('gen_period').value;
+  const company = document.getElementById('gen_company').value;
+  const mode = document.getElementById('gen_mode').value;
+
+  btn.disabled = true;
+  progress.classList.remove('d-none');
+  results.innerHTML = '';
+
+  const fd = new FormData();
+  fd.append('company_name', company);
+  fd.append('statement_period', period);
+  fd.append('mode', mode);
+
+  const res = await fetch('/generate', { method: 'POST', body: fd });
+  const data = await res.json();
+  progress.classList.add('d-none');
+  btn.disabled = false;
+
+  if (data.error) {
+    results.innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
+    return;
+  }
+
+  const ok = data.results.filter(r => r.status === 'ok').length;
+  const fail = data.results.filter(r => r.status === 'error').length;
+  results.innerHTML = `
+    <div class="alert alert-success py-2">
+      <i class="fa-solid fa-circle-check me-1"></i>
+      Generated <strong>${ok}</strong> PDF(s)${fail > 0 ? ` &bull; <span class='text-danger'>${fail} failed</span>` : ''}.
+    </div>
+    ${data.results.filter(r => r.status === 'error').map(r =>
+      `<div class="small text-danger"><i class="fa-solid fa-xmark me-1"></i>${r.account} – ${r.error}</div>`
+    ).join('')}
+  `;
+  // Store period for email step
+  document.getElementById('email_period').value = period;
+});
+
+// Send Emails
+document.getElementById('sendEmailsBtn')?.addEventListener('click', async () => {
+  const btn = document.getElementById('sendEmailsBtn');
+  const progress = document.getElementById('emailProgress');
+  const results = document.getElementById('emailResults');
+  const selected = [...document.querySelectorAll('.client-check:checked')].map(c => c.value);
+  const period = document.getElementById('email_period').value;
+
+  if (!confirm(`Send emails to ${selected.length} client(s)?`)) return;
+
+  btn.disabled = true;
+  progress.classList.remove('d-none');
+  results.innerHTML = '';
+
+  const fd = new FormData();
+  fd.append('statement_period', period);
+  selected.forEach(a => fd.append('selected', a));
+
+  const res = await fetch('/send', { method: 'POST', body: fd });
+  const data = await res.json();
+  progress.classList.add('d-none');
+  btn.disabled = false;
+
+  if (data.error) {
+    results.innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
+    return;
+  }
+
+  const sent = data.results.filter(r => r.status === 'sent').length;
+  const failed = data.results.filter(r => r.status === 'error').length;
+  const skipped = data.results.filter(r => r.status === 'skipped').length;
+
+  results.innerHTML = `
+    <div class="alert alert-success py-2">
+      <i class="fa-solid fa-paper-plane me-1"></i>
+      Sent <strong>${sent}</strong> email(s)${failed > 0 ? ` &bull; <span class='text-danger'>${failed} failed</span>` : ''}${skipped > 0 ? ` &bull; <span class='text-warning'>${skipped} skipped</span>` : ''}.
+    </div>
+    ${data.results.filter(r => r.status !== 'sent').map(r =>
+      `<div class="small ${r.status === 'error' ? 'text-danger' : 'text-warning'}">
+        <i class="fa-solid fa-${r.status === 'error' ? 'xmark' : 'triangle-exclamation'} me-1"></i>
+        ${r.account} (${r.name}) – ${r.error || r.reason}
+      </div>`
+    ).join('')}
+  `;
+});
+</script>
+{% endblock %}
