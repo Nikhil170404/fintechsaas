@@ -1,14 +1,22 @@
 import json
 import os
+import re
+import secrets
+import time
 import zipfile
+from datetime import datetime, timedelta
 from functools import wraps
 from pathlib import Path
 
+from cryptography.fernet import Fernet, InvalidToken
 from dotenv import load_dotenv
 from flask import (
     Flask, flash, jsonify, redirect, render_template,
     request, send_file, session, url_for,
 )
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+from flask_wtf.csrf import CSRFProtect
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from config import Config
@@ -19,9 +27,6 @@ from modules.statement_builder import StatementBuilder
 
 load_dotenv()
 
-app = Flask(__name__)
-app.secret_key = Config.SECRET_KEY
-
 UPLOAD_DIR    = Path("uploads")
 OUTPUT_DIR    = Path("output")
 SESSION_FILE  = UPLOAD_DIR / "session_data.json"
@@ -30,9 +35,108 @@ MAPPING_FILE  = UPLOAD_DIR / "column_mapping.json"
 TEMPLATE_PATH = UPLOAD_DIR / "word_template.docx"
 ACTIVITY_FILE = UPLOAD_DIR / "activity.json"
 PROFILES_FILE = UPLOAD_DIR / "mapping_profiles.json"
+AUDIT_LOG     = UPLOAD_DIR / "audit.log"
+ENC_KEY_FILE  = UPLOAD_DIR / ".enc_key"
 
 for d in (UPLOAD_DIR, OUTPUT_DIR):
     d.mkdir(exist_ok=True)
+
+# ── Auto-generate strong secret key if default is still set ───────────────────
+def _ensure_secret_key() -> str:
+    key_file = UPLOAD_DIR / ".secret_key"
+    if Config.SECRET_KEY != "dev-secret-change-in-production":
+        return Config.SECRET_KEY
+    if key_file.exists():
+        return key_file.read_text().strip()
+    new_key = secrets.token_hex(48)
+    key_file.write_text(new_key)
+    return new_key
+
+_SECRET_KEY = _ensure_secret_key()
+
+app = Flask(__name__)
+app.secret_key = _SECRET_KEY
+app.config.update(
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE="Lax",
+    PERMANENT_SESSION_LIFETIME=timedelta(hours=8),
+    WTF_CSRF_TIME_LIMIT=None,
+    MAX_CONTENT_LENGTH=16 * 1024 * 1024,   # 16 MB upload limit
+)
+
+csrf    = CSRFProtect(app)
+limiter = Limiter(get_remote_address, app=app, default_limits=[], storage_uri="memory://")
+
+# ── Security headers on every response ────────────────────────────────────────
+@app.after_request
+def _security_headers(response):
+    response.headers["X-Frame-Options"]           = "DENY"
+    response.headers["X-Content-Type-Options"]    = "nosniff"
+    response.headers["X-XSS-Protection"]          = "1; mode=block"
+    response.headers["Referrer-Policy"]           = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"]        = "camera=(), microphone=(), geolocation=()"
+    return response
+
+# ── Brute-force login protection ──────────────────────────────────────────────
+_login_attempts: dict = {}
+_MAX_ATTEMPTS  = 5
+_LOCKOUT_SECS  = 900  # 15 minutes
+
+def _check_lockout(ip: str) -> tuple[bool, int]:
+    now = time.time()
+    data = _login_attempts.get(ip, {})
+    until = data.get("until", 0)
+    if until > now:
+        return True, int(until - now)
+    return False, 0
+
+def _record_failure(ip: str):
+    now = time.time()
+    data = _login_attempts.get(ip, {"n": 0, "until": 0})
+    if data["until"] < now:
+        data["n"] += 1
+    if data["n"] >= _MAX_ATTEMPTS:
+        data["until"] = now + _LOCKOUT_SECS
+    _login_attempts[ip] = data
+
+def _clear_attempts(ip: str):
+    _login_attempts.pop(ip, None)
+
+# ── Encryption for sensitive settings at rest ─────────────────────────────────
+def _get_fernet() -> Fernet:
+    if not ENC_KEY_FILE.exists():
+        ENC_KEY_FILE.write_bytes(Fernet.generate_key())
+    return Fernet(ENC_KEY_FILE.read_bytes())
+
+def _encrypt(value: str) -> str:
+    if not value:
+        return ""
+    return _get_fernet().encrypt(value.encode()).decode()
+
+def _decrypt(value: str) -> str:
+    if not value:
+        return ""
+    try:
+        return _get_fernet().decrypt(value.encode()).decode()
+    except (InvalidToken, Exception):
+        return value   # migration: may be plain text
+
+# ── Audit log ─────────────────────────────────────────────────────────────────
+def _audit(action: str, detail: str = ""):
+    ts  = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    ip  = (request.remote_addr or "?") if request else "system"
+    who = "admin" if session.get("logged_in") else "anon"
+    line = f"[{ts}] [{ip}] [{who}] {action}"
+    if detail:
+        line += f" — {detail}"
+    with open(AUDIT_LOG, "a", encoding="utf-8") as f:
+        f.write(line + "\n")
+
+# ── Email validation ──────────────────────────────────────────────────────────
+_EMAIL_RE = re.compile(r'^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$')
+
+def _valid_email(addr: str) -> bool:
+    return bool(_EMAIL_RE.match((addr or "").strip()))
 
 
 # ── auth ───────────────────────────────────────────────────────────────────────
@@ -47,10 +151,21 @@ def login_required(f):
 
 
 @app.route("/login", methods=["GET", "POST"])
+@limiter.limit("10 per minute")
 def login():
     if session.get("logged_in"):
         return redirect(url_for("index"))
+
+    ip = request.remote_addr or "unknown"
+    locked, remaining = _check_lockout(ip)
+    if locked:
+        mins = remaining // 60 + 1
+        flash(f"Too many failed attempts. Try again in {mins} minute(s).", "danger")
+        return render_template("login.html", locked=True, remaining=remaining)
+
     cfg = _load_settings()
+    first_run = not cfg.get("admin_password_hash")  # never changed from default
+
     if request.method == "POST":
         username = request.form.get("username", "").strip()
         password = request.form.get("password", "")
@@ -61,14 +176,26 @@ def login():
             else password == "admin123"
         )
         if username == stored_user and pw_ok:
+            session.permanent = True
             session["logged_in"] = True
+            _clear_attempts(ip)
+            _audit("LOGIN_SUCCESS", username)
             return redirect(url_for("index"))
-        flash("Invalid username or password.", "danger")
-    return render_template("login.html")
+        _record_failure(ip)
+        _audit("LOGIN_FAILED", username)
+        locked, remaining = _check_lockout(ip)
+        if locked:
+            flash(f"Account locked for 15 minutes after too many failed attempts.", "danger")
+        else:
+            attempts_left = _MAX_ATTEMPTS - _login_attempts.get(ip, {}).get("n", 0)
+            flash(f"Invalid username or password. {attempts_left} attempt(s) remaining.", "danger")
+
+    return render_template("login.html", first_run=first_run)
 
 
 @app.route("/logout")
 def logout():
+    _audit("LOGOUT")
     session.pop("logged_in", None)
     return redirect(url_for("login"))
 
@@ -126,11 +253,20 @@ def _load_settings():
         "brand_color":         "#1E3A5F",
     }
     if SETTINGS_FILE.exists():
-        defaults.update(json.loads(SETTINGS_FILE.read_text()))
+        saved = json.loads(SETTINGS_FILE.read_text())
+        # Decrypt SMTP password if it was stored encrypted
+        if saved.get("smtp_pass"):
+            saved["smtp_pass"] = _decrypt(saved["smtp_pass"])
+        defaults.update(saved)
     return defaults
 
-def _save_settings(d):
-    SETTINGS_FILE.write_text(json.dumps(d))
+def _save_settings(d: dict):
+    to_save = dict(d)
+    # Encrypt SMTP password before persisting
+    plain = to_save.get("smtp_pass", "")
+    if plain and not plain.startswith("gAAA"):  # not already Fernet-encoded
+        to_save["smtp_pass"] = _encrypt(plain)
+    SETTINGS_FILE.write_text(json.dumps(to_save))
 
 def _default_html_template():
     return """\
@@ -421,6 +557,7 @@ def download_all():
 
 @app.route("/send", methods=["POST"])
 @login_required
+@limiter.limit("5 per 10 minutes")
 def send_emails():
     clients = _load_clients()
     if not clients:
@@ -444,6 +581,11 @@ def send_emails():
             results.append({"account": acct, "name": c["name"],
                             "status": "skipped", "reason": "PDF not generated"})
             continue
+        # Validate client email address before attempting send
+        if not _valid_email(c.get("email", "")):
+            results.append({"account": acct, "name": c["name"],
+                            "status": "skipped", "reason": f"Invalid email: {c.get('email','')}"})
+            continue
         try:
             plain = _render_content(settings["email_body"], c, settings, period)
             html  = _render_content(settings["email_html"], c, settings, period) \
@@ -454,8 +596,10 @@ def send_emails():
                         attachment_name=f"Statement_{acct}.pdf")
             results.append({"account": acct, "name": c["name"],
                             "status": "sent", "email": c["email"]})
+            _audit("EMAIL_SENT", f"{c['name']} <{c['email']}> period={period}")
             sent_count += 1
         except Exception as exc:
+            _audit("EMAIL_FAILED", f"{c['name']} <{c.get('email','')}> err={exc}")
             results.append({"account": acct, "name": c["name"],
                             "status": "error", "error": str(exc)})
 
@@ -506,19 +650,30 @@ def settings():
             flash("Password updated successfully.", "success")
 
         _save_settings(cfg)
+        _audit("SETTINGS_SAVED")
         if not new_pass:
             flash("Settings saved.", "success")
         return redirect(url_for("settings"))
     return render_template("settings.html", cfg=cfg)
 
 
+@app.route("/audit-log")
+@login_required
+def audit_log():
+    if not AUDIT_LOG.exists():
+        return jsonify({"lines": []})
+    lines = AUDIT_LOG.read_text(encoding="utf-8").splitlines()
+    return jsonify({"lines": lines[-100:]})
+
+
 @app.route("/test-smtp", methods=["POST"])
 @login_required
+@limiter.limit("5 per minute")
 def test_smtp():
     s = _load_settings()
-    test_email = request.form.get("test_email", "")
-    if not test_email:
-        return jsonify({"ok": False, "error": "No email address provided."})
+    test_email = request.form.get("test_email", "").strip()
+    if not test_email or not _valid_email(test_email):
+        return jsonify({"ok": False, "error": "Enter a valid email address."})
     try:
         EmailSender(s["smtp_host"], s["smtp_port"], s["smtp_user"],
                     s["smtp_pass"], s["sender_name"]).send(
@@ -526,8 +681,10 @@ def test_smtp():
             subject=f"SMTP Test – {s['company_name']}",
             body="SMTP is working correctly. Your FinTech SaaS email configuration is set up.",
         )
+        _audit("SMTP_TEST_OK", test_email)
         return jsonify({"ok": True})
     except Exception as exc:
+        _audit("SMTP_TEST_FAILED", str(exc))
         return jsonify({"ok": False, "error": str(exc)})
 
 
@@ -599,8 +756,12 @@ def generate_portfolio():
 @app.route("/download-output/<filename>")
 @login_required
 def download_output(filename):
-    path = OUTPUT_DIR / filename
-    if path.exists():
+    # Prevent path traversal — keep only the bare filename
+    safe = Path(filename).name
+    if not re.match(r'^[a-zA-Z0-9_\-\.]{1,120}$', safe):
+        return "Invalid filename", 400
+    path = OUTPUT_DIR / safe
+    if path.exists() and path.is_file():
         return send_file(path, as_attachment=True)
     return "File not found", 404
 
@@ -697,4 +858,4 @@ def download_template():
 
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5000)
+    app.run(debug=os.environ.get("FLASK_DEBUG", "0") == "1", port=5000)

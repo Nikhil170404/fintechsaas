@@ -1,3 +1,17 @@
+// CSRF token — injected into every mutating fetch automatically
+(function () {
+  const token = document.querySelector('meta[name="csrf-token"]')?.content || '';
+  if (!token) return;
+  const _orig = window.fetch.bind(window);
+  window.fetch = function (url, opts = {}) {
+    const method = (opts.method || 'GET').toUpperCase();
+    if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
+      opts.headers = { 'X-CSRFToken': token, ...(opts.headers || {}) };
+    }
+    return _orig(url, opts);
+  };
+})();
+
 // Live clock on dashboard
 const timeEl = document.getElementById('current-time');
 if (timeEl) {
