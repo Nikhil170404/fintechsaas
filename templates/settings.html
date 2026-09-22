@@ -112,6 +112,31 @@
       </div>
     </div>
 
+    <!-- Admin password -->
+    <div class="col-12">
+      <div class="card shadow-sm border-warning">
+        <div class="card-header fw-semibold text-warning">
+          <i class="fa-solid fa-lock me-2"></i>Change Admin Password
+        </div>
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label">Admin Username</label>
+              <input type="text" name="admin_username" class="form-control" value="{{ cfg.admin_username or 'admin' }}" autocomplete="username">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">New Password <span class="text-muted small">(leave blank to keep current)</span></label>
+              <input type="password" name="new_password" class="form-control" placeholder="Enter new password" autocomplete="new-password">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Confirm Password</label>
+              <input type="password" name="confirm_password" class="form-control" placeholder="Confirm new password" autocomplete="new-password">
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Test connection -->
     <div class="col-12">
       <div class="card shadow-sm border-info">

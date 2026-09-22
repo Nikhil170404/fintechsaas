@@ -31,17 +31,17 @@
     <div class="stat-card">
       <div class="stat-icon bg-warning-soft text-warning"><i class="fa-solid fa-envelope"></i></div>
       <div class="stat-body">
-        <div class="stat-value">—</div>
+        <div class="stat-value">{{ emails_sent }}</div>
         <div class="stat-label">Emails Sent</div>
       </div>
     </div>
   </div>
   <div class="col-sm-6 col-lg-3">
     <div class="stat-card">
-      <div class="stat-icon bg-info-soft text-info"><i class="fa-solid fa-clock-rotate-left"></i></div>
+      <div class="stat-icon bg-info-soft text-info"><i class="fa-solid fa-file-invoice-dollar"></i></div>
       <div class="stat-body">
-        <div class="stat-value" id="current-time">—</div>
-        <div class="stat-label">Current Time</div>
+        <div class="stat-value">{{ invoice_count }}</div>
+        <div class="stat-label">Invoices Generated</div>
       </div>
     </div>
   </div>

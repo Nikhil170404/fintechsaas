@@ -35,7 +35,7 @@
       <div class="row g-3">
         <div class="col-md-4">
           <label class="form-label fw-semibold">Company Name</label>
-          <input type="text" id="gen_company" class="form-control" value="{{ config.COMPANY_NAME if config else 'FinTech Solutions Pvt Ltd' }}">
+          <input type="text" id="gen_company" class="form-control" value="{{ settings.company_name if settings else 'FinTech Solutions Pvt Ltd' }}">
         </div>
         <div class="col-md-4">
           <label class="form-label fw-semibold">Statement Period</label>

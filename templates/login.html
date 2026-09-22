@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login – FinTech SaaS</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+  <style>
+    body {
+      background: #f4f6fb;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Segoe UI', Arial, sans-serif;
+    }
+    .login-card {
+      background: #fff;
+      border-radius: 1rem;
+      box-shadow: 0 4px 24px rgba(30,58,95,.12);
+      width: 100%;
+      max-width: 400px;
+      padding: 2.5rem 2rem;
+    }
+    .login-brand {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+    .login-brand .icon {
+      width: 60px; height: 60px;
+      background: #1e3a5f;
+      border-radius: .75rem;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+      color: #fff;
+      margin-bottom: 1rem;
+    }
+    .login-brand h1 {
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: #1e3a5f;
+      margin: 0;
+    }
+    .login-brand p { color: #7f8c8d; font-size: .875rem; margin-top: .25rem; }
+    .form-label { font-weight: 600; font-size: .875rem; }
+    .btn-login {
+      background: #1e3a5f;
+      color: #fff;
+      font-weight: 600;
+      letter-spacing: .03em;
+      padding: .6rem;
+    }
+    .btn-login:hover { background: #2e86ab; color: #fff; }
+    .login-footer {
+      text-align: center;
+      margin-top: 1.5rem;
+      font-size: .75rem;
+      color: #aaa;
+    }
+  </style>
+</head>
+<body>
+<div class="login-card">
+  <div class="login-brand">
+    <div class="icon"><i class="fa-solid fa-chart-line"></i></div>
+    <h1>FinTech SaaS</h1>
+    <p>Client Statement &amp; Finance System</p>
+  </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for cat, msg in messages %}
+        <div class="alert alert-{{ cat }} alert-dismissible fade show py-2 mb-3" role="alert">
+          {{ msg }}
+          <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+
+  <form method="POST">
+    <div class="mb-3">
+      <label class="form-label" for="username">Username</label>
+      <div class="input-group">
+        <span class="input-group-text"><i class="fa-solid fa-user fa-sm text-muted"></i></span>
+        <input type="text" id="username" name="username" class="form-control"
+               placeholder="admin" autocomplete="username" required autofocus>
+      </div>
+    </div>
+    <div class="mb-4">
+      <label class="form-label" for="password">Password</label>
+      <div class="input-group">
+        <span class="input-group-text"><i class="fa-solid fa-lock fa-sm text-muted"></i></span>
+        <input type="password" id="password" name="password" class="form-control"
+               placeholder="••••••••" autocomplete="current-password" required>
+        <button type="button" class="btn btn-outline-secondary" id="togglePass" tabindex="-1">
+          <i class="fa-solid fa-eye fa-sm" id="eyeIcon"></i>
+        </button>
+      </div>
+    </div>
+    <button type="submit" class="btn btn-login w-100">
+      <i class="fa-solid fa-right-to-bracket me-2"></i>Sign In
+    </button>
+  </form>
+
+  <div class="login-footer">
+    Default credentials: <strong>admin</strong> / <strong>admin123</strong><br>
+    Change password in <strong>Settings</strong> after first login.
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+document.getElementById('togglePass').addEventListener('click', function() {
+  const pw = document.getElementById('password');
+  const icon = document.getElementById('eyeIcon');
+  if (pw.type === 'password') {
+    pw.type = 'text';
+    icon.classList.replace('fa-eye', 'fa-eye-slash');
+  } else {
+    pw.type = 'password';
+    icon.classList.replace('fa-eye-slash', 'fa-eye');
+  }
+});
+</script>
+</body>
+</html>

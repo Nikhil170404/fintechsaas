@@ -24,24 +24,24 @@ class EmailSender:
         attachment_path: Path | None = None,
         attachment_name: str | None = None,
     ):
-        msg = MIMEMultipart("alternative" if html_body else "mixed")
+        if html_body and attachment_path:
+            # RFC 2387: multipart/mixed wraps a multipart/alternative inner part + attachment
+            inner = MIMEMultipart("alternative")
+            inner.attach(MIMEText(body, "plain", "utf-8"))
+            inner.attach(MIMEText(html_body, "html", "utf-8"))
+            msg = MIMEMultipart("mixed")
+            msg.attach(inner)
+        elif html_body:
+            msg = MIMEMultipart("alternative")
+            msg.attach(MIMEText(body, "plain", "utf-8"))
+            msg.attach(MIMEText(html_body, "html", "utf-8"))
+        else:
+            msg = MIMEMultipart("mixed")
+            msg.attach(MIMEText(body, "plain", "utf-8"))
+
         msg["From"] = f"{self.sender_name} <{self.username}>"
         msg["To"] = f"{to_name} <{to_email}>"
         msg["Subject"] = subject
-
-        # Plain text (always included as fallback)
-        msg.attach(MIMEText(body, "plain", "utf-8"))
-
-        # HTML version
-        if html_body:
-            msg.attach(MIMEText(html_body, "html", "utf-8"))
-            # Switch to mixed so we can also attach the PDF
-            mixed = MIMEMultipart("mixed")
-            mixed["From"] = msg["From"]
-            mixed["To"] = msg["To"]
-            mixed["Subject"] = msg["Subject"]
-            mixed.attach(msg)
-            msg = mixed
 
         if attachment_path:
             fname = attachment_name or Path(attachment_path).name

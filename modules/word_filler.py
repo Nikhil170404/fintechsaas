@@ -132,8 +132,9 @@ def _set_cell(row, col_idx: int, text: str):
             for run in para.runs:
                 run.text = ""
         if cell.paragraphs:
-            cell.paragraphs[0].runs[0].text = text if cell.paragraphs[0].runs else None
-            if not cell.paragraphs[0].runs:
+            if cell.paragraphs[0].runs:
+                cell.paragraphs[0].runs[0].text = text
+            else:
                 cell.paragraphs[0].add_run(text)
         else:
             cell.add_paragraph(text)

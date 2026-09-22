@@ -1,13 +1,15 @@
 import json
 import os
 import zipfile
+from functools import wraps
 from pathlib import Path
 
 from dotenv import load_dotenv
 from flask import (
     Flask, flash, jsonify, redirect, render_template,
-    request, send_file, url_for,
+    request, send_file, session, url_for,
 )
+from werkzeug.security import check_password_hash, generate_password_hash
 
 from config import Config
 from modules.column_detector import ColumnDetector, ALIASES, FIELD_LABELS
@@ -20,15 +22,54 @@ load_dotenv()
 app = Flask(__name__)
 app.secret_key = Config.SECRET_KEY
 
-UPLOAD_DIR   = Path("uploads")
-OUTPUT_DIR   = Path("output")
-SESSION_FILE = UPLOAD_DIR / "session_data.json"
-SETTINGS_FILE= UPLOAD_DIR / "settings.json"
-MAPPING_FILE = UPLOAD_DIR / "column_mapping.json"
-TEMPLATE_PATH= UPLOAD_DIR / "word_template.docx"
+UPLOAD_DIR    = Path("uploads")
+OUTPUT_DIR    = Path("output")
+SESSION_FILE  = UPLOAD_DIR / "session_data.json"
+SETTINGS_FILE = UPLOAD_DIR / "settings.json"
+MAPPING_FILE  = UPLOAD_DIR / "column_mapping.json"
+TEMPLATE_PATH = UPLOAD_DIR / "word_template.docx"
+ACTIVITY_FILE = UPLOAD_DIR / "activity.json"
 
 for d in (UPLOAD_DIR, OUTPUT_DIR):
     d.mkdir(exist_ok=True)
+
+
+# ── auth ───────────────────────────────────────────────────────────────────────
+
+def login_required(f):
+    @wraps(f)
+    def wrapped(*args, **kwargs):
+        if not session.get("logged_in"):
+            return redirect(url_for("login"))
+        return f(*args, **kwargs)
+    return wrapped
+
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if session.get("logged_in"):
+        return redirect(url_for("index"))
+    cfg = _load_settings()
+    if request.method == "POST":
+        username = request.form.get("username", "").strip()
+        password = request.form.get("password", "")
+        stored_user = cfg.get("admin_username", "admin")
+        stored_hash = cfg.get("admin_password_hash", "")
+        pw_ok = (
+            check_password_hash(stored_hash, password) if stored_hash
+            else password == "admin123"
+        )
+        if username == stored_user and pw_ok:
+            session["logged_in"] = True
+            return redirect(url_for("index"))
+        flash("Invalid username or password.", "danger")
+    return render_template("login.html")
+
+
+@app.route("/logout")
+def logout():
+    session.pop("logged_in", None)
+    return redirect(url_for("login"))
 
 
 # ── persistence helpers ────────────────────────────────────────────────────────
@@ -45,16 +86,24 @@ def _load_mapping():
 def _save_mapping(m):
     MAPPING_FILE.write_text(json.dumps(m))
 
+def _load_activity():
+    if ACTIVITY_FILE.exists():
+        return json.loads(ACTIVITY_FILE.read_text())
+    return {"emails_sent": 0}
+
+def _save_activity(a):
+    ACTIVITY_FILE.write_text(json.dumps(a))
+
 def _load_settings():
     defaults = {
-        "company_name":  Config.COMPANY_NAME,
-        "sender_name":   Config.SENDER_NAME,
-        "smtp_host":     Config.SMTP_HOST,
-        "smtp_port":     Config.SMTP_PORT,
-        "smtp_user":     Config.SMTP_USER,
-        "smtp_pass":     Config.SMTP_PASS,
-        "email_subject": "Your Account Statement – {{STATEMENT_PERIOD}}",
-        "email_type":    "plain",
+        "company_name":        Config.COMPANY_NAME,
+        "sender_name":         Config.SENDER_NAME,
+        "smtp_host":           Config.SMTP_HOST,
+        "smtp_port":           Config.SMTP_PORT,
+        "smtp_user":           Config.SMTP_USER,
+        "smtp_pass":           Config.SMTP_PASS,
+        "email_subject":       "Your Account Statement – {{STATEMENT_PERIOD}}",
+        "email_type":          "plain",
         "email_body": (
             "Dear {{CLIENT_NAME}},\n\n"
             "Please find your account statement for {{STATEMENT_PERIOD}} attached.\n\n"
@@ -63,7 +112,9 @@ def _load_settings():
             "For any queries, please reply to this email.\n\n"
             "Regards,\n{{SENDER_NAME}}"
         ),
-        "email_html": _default_html_template(),
+        "email_html":          _default_html_template(),
+        "admin_username":      "admin",
+        "admin_password_hash": "",
     }
     if SETTINGS_FILE.exists():
         defaults.update(json.loads(SETTINGS_FILE.read_text()))
@@ -169,18 +220,38 @@ def _render_content(template: str, client: dict, settings: dict, period: str) ->
     )
 
 
+# ── error handlers ─────────────────────────────────────────────────────────────
+
+@app.errorhandler(404)
+def page_not_found(e):
+    return render_template("404.html"), 404
+
+@app.errorhandler(500)
+def internal_error(e):
+    return render_template("500.html"), 500
+
+
 # ── routes ─────────────────────────────────────────────────────────────────────
 
 @app.route("/")
+@login_required
 def index():
     clients = _load_clients()
-    pdfs = list(OUTPUT_DIR.glob("statement_*.pdf"))
-    return render_template("index.html", client_count=len(clients), pdf_count=len(pdfs))
+    activity = _load_activity()
+    return render_template("index.html",
+        client_count=len(clients),
+        pdf_count=len(list(OUTPUT_DIR.glob("statement_*.pdf"))),
+        invoice_count=len(list(OUTPUT_DIR.glob("invoice_*.pdf"))),
+        loan_count=len(list(OUTPUT_DIR.glob("loan_schedule_*.pdf"))),
+        portfolio_count=len(list(OUTPUT_DIR.glob("portfolio_*.pdf"))),
+        emails_sent=activity.get("emails_sent", 0),
+    )
 
 
 # ── Upload + column mapper ─────────────────────────────────────────────────────
 
 @app.route("/upload", methods=["GET", "POST"])
+@login_required
 def upload():
     if request.method == "POST":
         f = request.files.get("excel_file")
@@ -192,12 +263,12 @@ def upload():
             return redirect(request.url)
         dest = UPLOAD_DIR / "clients.xlsx"
         f.save(dest)
-        # Go to column mapper
         return redirect(url_for("map_columns"))
     return render_template("upload.html")
 
 
 @app.route("/map-columns")
+@login_required
 def map_columns():
     xlsx = UPLOAD_DIR / "clients.xlsx"
     if not xlsx.exists():
@@ -207,7 +278,6 @@ def map_columns():
     detector = ColumnDetector(xlsx)
     sheets = detector.sheet_names
 
-    # Auto-detect best sheet for clients and transactions
     def guess(candidates):
         names_lower = {s.lower(): s for s in sheets}
         for c in candidates:
@@ -218,14 +288,13 @@ def map_columns():
     client_sheet = guess(["clients", "client", "master", "customers", "customer"])
     txn_sheet    = guess(["transactions", "transaction", "txn", "statement", "ledger"])
 
-    client_cols  = detector.columns_for(client_sheet)
-    txn_cols     = detector.columns_for(txn_sheet)
-    client_sug   = detector.auto_suggest(client_sheet, "clients")
-    txn_sug      = detector.auto_suggest(txn_sheet, "transactions")
-    flat_hint    = detector.detect_flat_mode(client_sheet)
-    preview      = detector.preview_rows(client_sheet, 3)
+    client_cols = detector.columns_for(client_sheet)
+    txn_cols    = detector.columns_for(txn_sheet)
+    client_sug  = detector.auto_suggest(client_sheet, "clients")
+    txn_sug     = detector.auto_suggest(txn_sheet, "transactions")
+    flat_hint   = detector.detect_flat_mode(client_sheet)
+    preview     = detector.preview_rows(client_sheet, 3)
 
-    # If a saved mapping exists, pre-fill suggestions from it
     saved = _load_mapping()
     if saved.get("clients"):
         client_sug.update(saved["clients"])
@@ -249,6 +318,7 @@ def map_columns():
 
 
 @app.route("/save-mapping", methods=["POST"])
+@login_required
 def save_mapping():
     flat = request.form.get("flat_mode", "0") == "1"
     mapping = {
@@ -281,12 +351,17 @@ def save_mapping():
 # ── Clients + statements ───────────────────────────────────────────────────────
 
 @app.route("/clients")
+@login_required
 def clients():
     data = _load_clients()
-    return render_template("clients.html", clients=data, has_template=TEMPLATE_PATH.exists())
+    settings = _load_settings()
+    return render_template("clients.html", clients=data,
+                           has_template=TEMPLATE_PATH.exists(),
+                           settings=settings)
 
 
 @app.route("/generate", methods=["POST"])
+@login_required
 def generate():
     clients = _load_clients()
     if not clients:
@@ -301,13 +376,16 @@ def generate():
         try:
             pdf = builder.build(c, company, period, mode=mode,
                                 word_template=TEMPLATE_PATH if mode == "template" else None)
-            results.append({"account": c["account_no"], "name": c["name"], "status": "ok", "file": pdf.name})
+            results.append({"account": c["account_no"], "name": c["name"],
+                            "status": "ok", "file": pdf.name})
         except Exception as exc:
-            results.append({"account": c["account_no"], "name": c["name"], "status": "error", "error": str(exc)})
+            results.append({"account": c["account_no"], "name": c["name"],
+                            "status": "error", "error": str(exc)})
     return jsonify({"results": results, "period": period})
 
 
 @app.route("/download/<account_no>")
+@login_required
 def download(account_no):
     path = OUTPUT_DIR / f"statement_{account_no}.pdf"
     if path.exists():
@@ -316,6 +394,7 @@ def download(account_no):
 
 
 @app.route("/download-all")
+@login_required
 def download_all():
     pdfs = list(OUTPUT_DIR.glob("statement_*.pdf"))
     if not pdfs:
@@ -329,6 +408,7 @@ def download_all():
 
 
 @app.route("/send", methods=["POST"])
+@login_required
 def send_emails():
     clients = _load_clients()
     if not clients:
@@ -340,14 +420,17 @@ def send_emails():
     sender    = EmailSender(settings["smtp_host"], settings["smtp_port"],
                             settings["smtp_user"], settings["smtp_pass"],
                             settings["sender_name"])
+    activity = _load_activity()
     results = []
+    sent_count = 0
     for c in clients:
         acct = c["account_no"]
         if selected and acct not in selected:
             continue
         pdf_path = OUTPUT_DIR / f"statement_{acct}.pdf"
         if not pdf_path.exists():
-            results.append({"account": acct, "name": c["name"], "status": "skipped", "reason": "PDF not generated"})
+            results.append({"account": acct, "name": c["name"],
+                            "status": "skipped", "reason": "PDF not generated"})
             continue
         try:
             plain = _render_content(settings["email_body"], c, settings, period)
@@ -357,13 +440,20 @@ def send_emails():
                         subject=subject_t, body=plain, html_body=html,
                         attachment_path=pdf_path,
                         attachment_name=f"Statement_{acct}.pdf")
-            results.append({"account": acct, "name": c["name"], "status": "sent", "email": c["email"]})
+            results.append({"account": acct, "name": c["name"],
+                            "status": "sent", "email": c["email"]})
+            sent_count += 1
         except Exception as exc:
-            results.append({"account": acct, "name": c["name"], "status": "error", "error": str(exc)})
+            results.append({"account": acct, "name": c["name"],
+                            "status": "error", "error": str(exc)})
+
+    activity["emails_sent"] = activity.get("emails_sent", 0) + sent_count
+    _save_activity(activity)
     return jsonify({"results": results})
 
 
 @app.route("/upload-template", methods=["POST"])
+@login_required
 def upload_template():
     f = request.files.get("word_template")
     if not f or not f.filename.lower().endswith(".docx"):
@@ -377,19 +467,41 @@ def upload_template():
 # ── Settings ───────────────────────────────────────────────────────────────────
 
 @app.route("/settings", methods=["GET", "POST"])
+@login_required
 def settings():
     cfg = _load_settings()
     if request.method == "POST":
-        for key in cfg:
+        # Update standard settings fields
+        for key in ("company_name", "sender_name", "smtp_host", "smtp_port",
+                    "smtp_user", "smtp_pass", "email_subject", "email_type",
+                    "email_body", "email_html"):
             if key in request.form:
                 cfg[key] = request.form[key]
+
+        # Username change (always apply if provided)
+        new_user = request.form.get("admin_username", "").strip()
+        if new_user:
+            cfg["admin_username"] = new_user
+
+        # Password change
+        new_pass = request.form.get("new_password", "").strip()
+        confirm_pass = request.form.get("confirm_password", "").strip()
+        if new_pass:
+            if new_pass != confirm_pass:
+                flash("Passwords do not match. Settings not saved.", "danger")
+                return render_template("settings.html", cfg=cfg)
+            cfg["admin_password_hash"] = generate_password_hash(new_pass)
+            flash("Password updated successfully.", "success")
+
         _save_settings(cfg)
-        flash("Settings saved.", "success")
+        if not new_pass:
+            flash("Settings saved.", "success")
         return redirect(url_for("settings"))
     return render_template("settings.html", cfg=cfg)
 
 
 @app.route("/test-smtp", methods=["POST"])
+@login_required
 def test_smtp():
     s = _load_settings()
     test_email = request.form.get("test_email", "")
@@ -400,7 +512,7 @@ def test_smtp():
                     s["smtp_pass"], s["sender_name"]).send(
             to_email=test_email, to_name="Test",
             subject=f"SMTP Test – {s['company_name']}",
-            body="SMTP is working correctly.",
+            body="SMTP is working correctly. Your FinTech SaaS email configuration is set up.",
         )
         return jsonify({"ok": True})
     except Exception as exc:
@@ -410,28 +522,35 @@ def test_smtp():
 # ── Fintech modules ────────────────────────────────────────────────────────────
 
 @app.route("/invoices")
+@login_required
 def invoices():
-    return render_template("invoices.html")
+    settings = _load_settings()
+    return render_template("invoices.html", settings=settings)
 
 
 @app.route("/generate-invoice", methods=["POST"])
+@login_required
 def generate_invoice():
     from modules.invoice_generator import InvoiceGenerator
     data = request.get_json()
     try:
         gen = InvoiceGenerator(OUTPUT_DIR)
         pdf = gen.generate(data["client"], data["company"])
-        return jsonify({"ok": True, "file": pdf.name, "invoice_no": data["client"].get("invoice_no")})
+        return jsonify({"ok": True, "file": pdf.name,
+                        "invoice_no": data["client"].get("invoice_no")})
     except Exception as exc:
         return jsonify({"ok": False, "error": str(exc)})
 
 
 @app.route("/loans")
+@login_required
 def loans():
-    return render_template("loans.html")
+    settings = _load_settings()
+    return render_template("loans.html", settings=settings)
 
 
 @app.route("/generate-loan-schedule", methods=["POST"])
+@login_required
 def generate_loan_schedule():
     from modules.loan_schedule import LoanScheduleGenerator
     data = request.get_json()
@@ -445,11 +564,14 @@ def generate_loan_schedule():
 
 
 @app.route("/portfolio")
+@login_required
 def portfolio():
-    return render_template("portfolio.html")
+    settings = _load_settings()
+    return render_template("portfolio.html", settings=settings)
 
 
 @app.route("/generate-portfolio", methods=["POST"])
+@login_required
 def generate_portfolio():
     from modules.portfolio_report import PortfolioReportGenerator
     data = request.get_json()
@@ -463,6 +585,7 @@ def generate_portfolio():
 
 
 @app.route("/download-output/<filename>")
+@login_required
 def download_output(filename):
     path = OUTPUT_DIR / filename
     if path.exists():
@@ -473,6 +596,7 @@ def download_output(filename):
 # ── Template download ──────────────────────────────────────────────────────────
 
 @app.route("/download-template")
+@login_required
 def download_template():
     from generate_sample import make_sample_excel
     path = make_sample_excel(UPLOAD_DIR / "sample_template.xlsx")

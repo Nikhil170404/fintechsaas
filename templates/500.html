@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Server Error – FinTech SaaS{% endblock %}
+{% block content %}
+<div class="text-center py-5">
+  <div style="font-size:5rem;color:#dde2ec;">500</div>
+  <h2 class="fw-bold text-muted">Something went wrong</h2>
+  <p class="text-muted mb-4">An unexpected error occurred. Please try again or contact support.</p>
+  <a href="{{ url_for('index') }}" class="btn btn-primary">
+    <i class="fa-solid fa-house me-2"></i>Go to Dashboard
+  </a>
+</div>
+{% endblock %}
