@@ -1,34 +1,24 @@
 {% extends "base.html" %}
-{% block title %}Dashboard – FinTech SaaS{% endblock %}
+{% block title %}Dashboard – FinDesk{% endblock %}
 
 {% block content %}
 
-<!-- Welcome banner -->
-<div class="guide-banner mb-4">
-  <div class="guide-icon"><i class="fa-solid fa-rocket"></i></div>
-  <div class="flex-grow-1">
-    <div class="guide-title">Welcome to FinTech SaaS — your all-in-one finance document system</div>
-    <div class="guide-steps mt-2">
-      <span class="guide-step-pill {{ 'done' if client_count > 0 else '' }}">
-        <i class="fa-solid fa-{{ 'check' if client_count > 0 else '1' }} me-1"></i>Upload Clients
-      </span>
-      <i class="fa-solid fa-chevron-right" style="opacity:.5;font-size:.75rem;align-self:center"></i>
-      <span class="guide-step-pill {{ 'done' if pdf_count > 0 else '' }}">
-        <i class="fa-solid fa-{{ 'check' if pdf_count > 0 else '2' }} me-1"></i>Generate PDFs
-      </span>
-      <i class="fa-solid fa-chevron-right" style="opacity:.5;font-size:.75rem;align-self:center"></i>
-      <span class="guide-step-pill {{ 'done' if emails_sent > 0 else '' }}">
-        <i class="fa-solid fa-{{ 'check' if emails_sent > 0 else '3' }} me-1"></i>Send Emails
-      </span>
-    </div>
+<header class="page-header">
+  <div>
+    <p class="eyebrow">Finance workspace</p>
+    <h1>Good morning</h1>
+    <p class="page-intro">Your client records, documents and communications stay organised in one place.</p>
   </div>
-</div>
+  <div class="page-actions">
+    <a href="{{ url_for('download_template') }}" class="btn btn-outline-secondary" target="_blank">Download sample spreadsheet</a>
+    <a href="{{ url_for('upload') }}" class="btn btn-primary">Import client data</a>
+  </div>
+</header>
 
-<!-- Stats row -->
 <div class="row g-3 mb-4">
   <div class="col-6 col-lg-3">
     <div class="stat-card">
-      <div class="stat-icon bg-blue-soft" style="color:#1d4ed8">
+      <div class="stat-icon bg-blue-soft">
         <i class="fa-solid fa-users"></i>
       </div>
       <div>
@@ -39,7 +29,7 @@
   </div>
   <div class="col-6 col-lg-3">
     <div class="stat-card">
-      <div class="stat-icon bg-green-soft" style="color:#16a34a">
+      <div class="stat-icon bg-green-soft">
         <i class="fa-solid fa-file-pdf"></i>
       </div>
       <div>
@@ -50,7 +40,7 @@
   </div>
   <div class="col-6 col-lg-3">
     <div class="stat-card">
-      <div class="stat-icon bg-amber-soft" style="color:#d97706">
+      <div class="stat-icon bg-blue-soft">
         <i class="fa-solid fa-envelope"></i>
       </div>
       <div>
@@ -61,7 +51,7 @@
   </div>
   <div class="col-6 col-lg-3">
     <div class="stat-card">
-      <div class="stat-icon bg-purple-soft" style="color:#7c3aed">
+      <div class="stat-icon bg-green-soft">
         <i class="fa-solid fa-file-invoice-dollar"></i>
       </div>
       <div>
@@ -72,11 +62,12 @@
   </div>
 </div>
 
-<!-- How it works — main workflow -->
 <div class="card mb-4">
   <div class="card-header">
-    <i class="fa-solid fa-list-check text-primary"></i>
-    How It Works — 3 Easy Steps
+    <div>
+      <div class="card-title">Your next steps</div>
+      <div class="card-caption">Complete these in order. You can return to any step later.</div>
+    </div>
   </div>
   <div class="card-body">
     <div class="steps-track gap-3">
@@ -88,19 +79,19 @@
             {% if client_count > 0 %}<i class="fa-solid fa-check"></i>{% else %}1{% endif %}
           </div>
           {% if client_count > 0 %}
-            <span class="badge bg-success">Done</span>
+            <span class="status status-success">Complete</span>
           {% else %}
-            <span class="badge bg-primary">Start here</span>
+            <span class="status status-primary">Start here</span>
           {% endif %}
         </div>
-        <div class="step-title">Upload Client Excel</div>
-        <div class="step-desc">Upload your Excel file with client names, account numbers and transactions. We provide a ready-made template — just fill it in.</div>
+        <div class="step-title">Import client data</div>
+        <div class="step-desc">Upload your spreadsheet. FinDesk helps you match each column before anything is saved.</div>
         <div class="mt-auto pt-2 d-flex gap-2 flex-wrap">
           <a href="{{ url_for('upload') }}" class="btn btn-primary btn-sm">
-            <i class="fa-solid fa-upload"></i> Upload Excel
+            Import spreadsheet
           </a>
           <a href="{{ url_for('download_template') }}" class="btn btn-outline-secondary btn-sm" target="_blank">
-            <i class="fa-solid fa-download"></i> Get Template
+            View sample
           </a>
         </div>
       </div>
@@ -116,18 +107,18 @@
             {% if pdf_count > 0 %}<i class="fa-solid fa-check"></i>{% else %}2{% endif %}
           </div>
           {% if pdf_count > 0 %}
-            <span class="badge bg-success">Done</span>
+            <span class="status status-success">Complete</span>
           {% elif client_count > 0 %}
-            <span class="badge bg-primary">Next step</span>
+            <span class="status status-primary">Next step</span>
           {% else %}
-            <span class="badge bg-secondary">Waiting</span>
+            <span class="status status-muted">Waiting</span>
           {% endif %}
         </div>
-        <div class="step-title">Generate PDF Statements</div>
-        <div class="step-desc">One click creates a beautiful, branded PDF statement for every client with their full transaction history.</div>
+        <div class="step-title">Prepare documents</div>
+        <div class="step-desc">Generate branded statements or invoices and check every document before it is shared.</div>
         <div class="mt-auto pt-2">
           <a href="{{ url_for('clients') }}" class="btn btn-success btn-sm">
-            <i class="fa-solid fa-file-pdf"></i> Go to Clients
+            Open clients
           </a>
         </div>
       </div>
@@ -143,21 +134,21 @@
             {% if emails_sent > 0 %}<i class="fa-solid fa-check"></i>{% else %}3{% endif %}
           </div>
           {% if emails_sent > 0 %}
-            <span class="badge bg-success">Done</span>
+            <span class="status status-success">Complete</span>
           {% elif pdf_count > 0 %}
-            <span class="badge bg-primary">Next step</span>
+            <span class="status status-primary">Next step</span>
           {% else %}
-            <span class="badge bg-secondary">Waiting</span>
+            <span class="status status-muted">Waiting</span>
           {% endif %}
         </div>
-        <div class="step-title">Send Emails to All Clients</div>
-        <div class="step-desc">Attach the PDFs and send personalised emails to every client in one shot. Configure your email server in Settings first.</div>
+        <div class="step-title">Review and send</div>
+        <div class="step-desc">Choose an approved template, verify attachments, then send personalised emails with a full delivery record.</div>
         <div class="mt-auto pt-2 d-flex gap-2 flex-wrap">
           <a href="{{ url_for('clients') }}" class="btn btn-warning btn-sm text-dark">
-            <i class="fa-solid fa-paper-plane"></i> Send Emails
+            Review clients
           </a>
           <a href="{{ url_for('settings') }}" class="btn btn-outline-secondary btn-sm">
-            <i class="fa-solid fa-gear"></i> Configure SMTP
+            Set up email
           </a>
         </div>
       </div>
@@ -166,19 +157,20 @@
   </div>
 </div>
 
-<!-- Quick actions + Tips -->
 <div class="row g-3">
 
   <!-- Quick actions -->
   <div class="col-lg-5">
     <div class="card h-100">
       <div class="card-header">
-        <i class="fa-solid fa-bolt text-warning"></i>
-        Other Documents You Can Generate
+        <div>
+          <div class="card-title">Create a document</div>
+          <div class="card-caption">Use a guided form. Your company details and branding are applied automatically.</div>
+        </div>
       </div>
       <div class="card-body d-flex flex-column gap-2">
         <a href="{{ url_for('invoices') }}" class="quick-card flex-row text-start gap-3">
-          <div class="qc-icon bg-sky-soft" style="color:#0284c7;flex-shrink:0">
+          <div class="qc-icon bg-blue-soft">
             <i class="fa-solid fa-file-invoice-dollar"></i>
           </div>
           <div>
@@ -189,7 +181,7 @@
         </a>
 
         <a href="{{ url_for('loans') }}" class="quick-card flex-row text-start gap-3">
-          <div class="qc-icon bg-green-soft" style="color:#16a34a;flex-shrink:0">
+          <div class="qc-icon bg-green-soft">
             <i class="fa-solid fa-hand-holding-dollar"></i>
           </div>
           <div>
@@ -200,7 +192,7 @@
         </a>
 
         <a href="{{ url_for('portfolio') }}" class="quick-card flex-row text-start gap-3">
-          <div class="qc-icon bg-purple-soft" style="color:#7c3aed;flex-shrink:0">
+          <div class="qc-icon bg-blue-soft">
             <i class="fa-solid fa-chart-pie"></i>
           </div>
           <div>
@@ -211,7 +203,7 @@
         </a>
 
         <a href="{{ url_for('template_designer') }}" class="quick-card flex-row text-start gap-3">
-          <div class="qc-icon bg-rose-soft" style="color:#e11d48;flex-shrink:0">
+          <div class="qc-icon bg-green-soft">
             <i class="fa-solid fa-wand-magic-sparkles"></i>
           </div>
           <div>
@@ -228,35 +220,31 @@
   <div class="col-lg-7">
     <div class="card h-100">
       <div class="card-header">
-        <i class="fa-solid fa-circle-question text-info"></i>
-        Tips &amp; Common Questions
+        <div>
+          <div class="card-title">Start with confidence</div>
+          <div class="card-caption">A simple checklist for setting up your company workspace.</div>
+        </div>
       </div>
       <div class="card-body d-flex flex-column gap-2">
 
         <div class="tip-box">
-          <i class="fa-solid fa-lightbulb" style="color:#d97706;flex-shrink:0;margin-top:.1rem"></i>
-          <div><strong>First time?</strong> Download the Sample Excel Template from the sidebar, fill it with your client data, then upload it here. That's it!</div>
+          <div><strong>First time?</strong> Download the sample spreadsheet, enter your client data, then import it. You will review the columns before anything is added.</div>
         </div>
 
         <div class="list-group list-group-flush" style="border-radius:var(--r)">
           <div class="list-group-item border-0 px-0 py-2 d-flex gap-3">
-            <i class="fa-solid fa-circle-check text-success mt-1" style="flex-shrink:0"></i>
             <div><strong>Excel format:</strong> Two sheets — <em>Clients</em> (name, email, account no) and <em>Transactions</em> (date, debit, credit, balance). Account numbers must match.</div>
           </div>
           <div class="list-group-item border-0 px-0 py-2 d-flex gap-3">
-            <i class="fa-solid fa-circle-check text-success mt-1" style="flex-shrink:0"></i>
             <div><strong>Before sending emails:</strong> Go to Settings → SMTP and enter your Gmail / Outlook / SMTP details. Click "Test SMTP" to confirm it works.</div>
           </div>
           <div class="list-group-item border-0 px-0 py-2 d-flex gap-3">
-            <i class="fa-solid fa-circle-check text-success mt-1" style="flex-shrink:0"></i>
             <div><strong>Your branding on PDFs:</strong> Go to Settings → Branding to upload your company logo and choose your brand color. Every PDF will use it.</div>
           </div>
           <div class="list-group-item border-0 px-0 py-2 d-flex gap-3">
-            <i class="fa-solid fa-circle-check text-success mt-1" style="flex-shrink:0"></i>
             <div><strong>GST Invoices:</strong> Select Intra-State for CGST+SGST (same state) or Inter-State for IGST (different states). The PDF splits the tax correctly.</div>
           </div>
           <div class="list-group-item border-0 px-0 py-2 d-flex gap-3">
-            <i class="fa-solid fa-circle-check text-success mt-1" style="flex-shrink:0"></i>
             <div><strong>Merge all PDFs into one:</strong> On the Clients page, click "Merge All to One PDF" to download a single combined file.</div>
           </div>
         </div>
