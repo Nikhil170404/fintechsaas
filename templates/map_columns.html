@@ -2,10 +2,13 @@
 {% block title %}Map Columns – FinTech SaaS{% endblock %}
 
 {% block content %}
+{% set wizard_step = 2 %}
+{% include "_wizard_steps.html" %}
+
 <div class="page-header">
   <h1><i class="fa-solid fa-table-columns me-2 text-primary"></i>Map Your Excel Columns</h1>
   <p class="text-muted">
-    Your Excel has different column names — just tell us which column is which. We auto-detected the best matches.
+    Step 2 of 4 — your Excel has different column names, just tell us which column is which. We auto-detected the best matches.
   </p>
 </div>
 

@@ -536,22 +536,48 @@ def _default_html_template():
 </body>
 </html>"""
 
-def _render_content(template: str, client: dict, settings: dict, period: str) -> str:
+_TAG_RE = re.compile(r'\{\{\s*([^{}]+?)\s*\}\}')
+
+def _normalize_tag(s: str) -> str:
+    """CLIENT_NAME, client_name, Client Name, {{ Client-Name }} all match the
+    same tag — templates shouldn't have to match an exact spelling/casing."""
+    return re.sub(r'[^A-Z0-9]', '', s.upper())
+
+def _placeholder_values(client: dict, settings: dict, period: str) -> dict:
     txns = client.get("transactions", [])
     closing = txns[-1]["balance"] if txns else client.get("opening_balance", 0)
     total_debit = sum(t["debit"] for t in txns)
     total_credit = sum(t["credit"] for t in txns)
-    return (
-        template
-        .replace("{{CLIENT_NAME}}",      client.get("name", ""))
-        .replace("{{ACCOUNT_NO}}",       client.get("account_no", ""))
-        .replace("{{STATEMENT_PERIOD}}", period)
-        .replace("{{CLOSING_BALANCE}}",  f"₹{closing:,.2f}")
-        .replace("{{TOTAL_DEBIT}}",      f"₹{total_debit:,.2f}")
-        .replace("{{TOTAL_CREDIT}}",     f"₹{total_credit:,.2f}")
-        .replace("{{SENDER_NAME}}",      settings.get("sender_name", ""))
-        .replace("{{COMPANY_NAME}}",     settings.get("company_name", ""))
-    )
+    values = {
+        "CLIENTNAME":      client.get("name", ""),
+        "NAME":            client.get("name", ""),
+        "ACCOUNTNO":       client.get("account_no", ""),
+        "EMAIL":           client.get("email", ""),
+        "PHONE":           client.get("phone", ""),
+        "ADDRESS":         client.get("address", ""),
+        "ACCOUNTTYPE":     client.get("account_type", ""),
+        "OPENINGBALANCE":  f"₹{client.get('opening_balance', 0):,.2f}",
+        "STATEMENTPERIOD": period,
+        "CLOSINGBALANCE":  f"₹{closing:,.2f}",
+        "TOTALDEBIT":      f"₹{total_debit:,.2f}",
+        "TOTALCREDIT":     f"₹{total_credit:,.2f}",
+        "SENDERNAME":      settings.get("sender_name", ""),
+        "COMPANYNAME":     settings.get("company_name", ""),
+    }
+    # Any other column from the uploaded Excel that isn't one of the fixed
+    # fields above — this is what lets a template use {{AnyColumnName}} for
+    # whatever the company's sheet actually has (branch, RM name, GST no...),
+    # not just a fixed list. Fixed fields above always win on a name clash.
+    for col, val in client.get("extra_columns", {}).items():
+        values.setdefault(_normalize_tag(col), val)
+    return values
+
+def _render_content(template: str, client: dict, settings: dict, period: str) -> str:
+    values = _placeholder_values(client, settings, period)
+    def _sub(m: re.Match) -> str:
+        key = _normalize_tag(m.group(1))
+        return str(values[key]) if key in values else m.group(0)
+    return _TAG_RE.sub(_sub, template)
 
 
 # ── one-time legacy migration (pre-multi-tenant single-admin install) ─────────
@@ -747,10 +773,87 @@ def save_mapping():
         clients = reader.get_clients()
         _save_clients(clients)
         flash(f"Loaded {len(clients)} client(s) with your column mapping.", "success")
-        return redirect(url_for("clients"))
+        return redirect(url_for("wizard_template"))
     except Exception as exc:
         flash(f"Error reading Excel with this mapping: {exc}", "danger")
         return redirect(url_for("map_columns"))
+
+
+# ── Wizard step 3: drag-and-drop email template ────────────────────────────────
+
+MERGE_TAGS = [
+    ("CLIENT_NAME",      "Client Name"),
+    ("ACCOUNT_NO",       "Account No"),
+    ("EMAIL",            "Email"),
+    ("PHONE",            "Phone"),
+    ("ADDRESS",          "Address"),
+    ("ACCOUNT_TYPE",     "Account Type"),
+    ("OPENING_BALANCE",  "Opening Balance"),
+    ("CLOSING_BALANCE",  "Closing Balance"),
+    ("TOTAL_DEBIT",      "Total Debit"),
+    ("TOTAL_CREDIT",     "Total Credit"),
+    ("STATEMENT_PERIOD", "Statement Period"),
+    ("COMPANY_NAME",     "Company Name"),
+    ("SENDER_NAME",      "Sender Name"),
+]
+
+
+@app.route("/wizard/template", methods=["GET", "POST"])
+@login_required
+def wizard_template():
+    cfg = _load_settings()
+    if request.method == "POST":
+        cfg["email_subject"] = request.form.get("email_subject", cfg["email_subject"])
+        cfg["email_type"]    = request.form.get("email_type", cfg["email_type"])
+        cfg["email_body"]    = request.form.get("email_body_plain", cfg["email_body"])
+        raw_html = request.form.get("email_html", cfg["email_html"])
+        try:
+            from modules.html_utils import inline_and_extract_body
+            cfg["email_html"] = inline_and_extract_body(f"<html><body>{raw_html}</body></html>")
+        except Exception:
+            cfg["email_html"] = raw_html
+        _save_settings(cfg)
+        _audit("EMAIL_TEMPLATE_SAVED")
+        flash("Email template saved.", "success")
+        return redirect(url_for("clients"))
+
+    clients_list = _load_clients()
+    body_match = re.search(r'<body[^>]*>([\s\S]*?)</body>', cfg["email_html"], re.IGNORECASE)
+    editor_html = body_match.group(1).strip() if body_match else cfg["email_html"]
+
+    # Any column the company's own Excel actually has — beyond the fixed set
+    # above — shows up here too, so {{AnyColumnName}} works for whatever they
+    # uploaded (branch, RM name, GST no, ...), not just a fixed field list.
+    all_tags = list(MERGE_TAGS)
+    seen = {_normalize_tag(t) for t, _ in MERGE_TAGS}
+    if clients_list:
+        for col in clients_list[0].get("extra_columns", {}):
+            tag = _normalize_tag(col)
+            if tag and tag not in seen:
+                all_tags.append((col, col))
+                seen.add(tag)
+
+    return render_template("wizard_template.html", cfg=cfg, editor_html=editor_html,
+                           clients=clients_list, merge_tags=all_tags)
+
+
+@app.route("/wizard/template/preview", methods=["POST"])
+@login_required
+def wizard_template_preview():
+    data = request.get_json(force=True) or {}
+    html = data.get("html", "")
+    account_no = data.get("account_no", "")
+    period = data.get("period", "August 2026")
+
+    clients_list = _load_clients()
+    if not clients_list:
+        return jsonify({"error": "Upload client data first."}), 400
+    client = next((c for c in clients_list if c["account_no"] == account_no), clients_list[0])
+    settings = _load_settings()
+    merged = _render_content(html, client, settings, period)
+    return jsonify({"ok": True, "html": merged, "client": {
+        "account_no": client["account_no"], "name": client["name"],
+    }})
 
 
 # ── Clients + statements ───────────────────────────────────────────────────────
@@ -824,9 +927,14 @@ def send_emails():
     clients = _load_clients()
     if not clients:
         return jsonify({"error": "No clients loaded."}), 400
+    selected  = set(request.form.getlist("selected"))
+    if not selected:
+        # An empty selection must mean "send to no one" — never silently fall
+        # back to sending everyone, which would send statements to clients
+        # the user did not choose.
+        return jsonify({"error": "No clients selected. Select at least one client before sending."}), 400
     settings  = _load_settings()
     output_dir = _tenant_dirs()["output"]
-    selected  = set(request.form.getlist("selected"))
     period    = request.form.get("statement_period", "")
     subject_t = settings["email_subject"].replace("{{STATEMENT_PERIOD}}", period)
     sender    = EmailSender(settings["smtp_host"], settings["smtp_port"],
@@ -837,7 +945,7 @@ def send_emails():
     sent_count = 0
     for c in clients:
         acct = c["account_no"]
-        if selected and acct not in selected:
+        if acct not in selected:
             continue
         pdf_path = output_dir / f"statement_{acct}.pdf"
         if not pdf_path.exists():

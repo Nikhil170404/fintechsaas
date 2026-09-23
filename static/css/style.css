@@ -474,6 +474,88 @@ h1, h2, h3, h4, h5, h6 {
   line-height: 1.5;
 }
 
+/* ── Wizard progress (compact step header, Upload → Map → Template → Send) ── */
+.wizard-progress {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.wizard-step {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  padding: .375rem .75rem .375rem .375rem;
+  border-radius: 999px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+}
+
+.wizard-step.wizard-step-active {
+  border-color: var(--brand-300);
+  background: var(--brand-50);
+  box-shadow: 0 0 0 3px var(--brand-100);
+}
+
+.wizard-step.wizard-step-done {
+  border-color: #86efac;
+  background: #f0fdf4;
+}
+
+.wizard-step-num {
+  width: 26px; height: 26px;
+  border-radius: 50%;
+  background: var(--bg-app);
+  color: var(--text-m);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: .75rem;
+  flex-shrink: 0;
+  border: 1px solid var(--border);
+}
+
+.wizard-step-active .wizard-step-num {
+  background: var(--brand-500);
+  color: #fff;
+  border-color: var(--brand-500);
+}
+
+.wizard-step-done .wizard-step-num {
+  background: var(--success);
+  color: #fff;
+  border-color: var(--success);
+}
+
+.wizard-step-label {
+  font-size: .8125rem;
+  font-weight: 700;
+  color: var(--text-h);
+  white-space: nowrap;
+}
+
+.wizard-step:not(.wizard-step-active):not(.wizard-step-done) .wizard-step-label {
+  color: var(--text-m);
+  font-weight: 600;
+}
+
+.wizard-step-arrow {
+  color: var(--text-d);
+  padding: 0 .5rem;
+  font-size: .75rem;
+  flex-shrink: 0;
+}
+
+@media (max-width: 700px) {
+  .wizard-progress { gap: .5rem .375rem; }
+  .wizard-step-label { display: none; }
+  .wizard-step.wizard-step-active .wizard-step-label { display: inline; }
+  .wizard-step-arrow { padding: 0 .125rem; }
+}
+
 /* ── Help callout ─────────────────────────────────────────────────────────── */
 .help-box {
   background: var(--info-bg);
@@ -922,3 +1004,45 @@ h1, h2, h3, h4, h5, h6 {
   .main-content { padding: .875rem; padding-top: 3.5rem; }
   .stat-value { font-size: 1.625rem; }
 }
+
+/* ── GrapesJS theming — match app's card/brand language instead of the
+   default dark IDE look ─────────────────────────────────────────────────── */
+.gjs-editor {
+  font-family: 'Inter', 'Segoe UI', system-ui, sans-serif !important;
+}
+
+.gjs-one-bg { background-color: var(--bg-card) !important; }
+.gjs-two-color { color: var(--text-h) !important; }
+.gjs-three-bg {
+  background-color: var(--brand-500) !important;
+  color: #fff !important;
+}
+.gjs-four-color, .gjs-four-color-h:hover { color: var(--brand-500) !important; }
+
+.gjs-pn-panel { border-color: var(--border) !important; }
+.gjs-pn-btn { border-radius: var(--r-sm); color: var(--text-m) !important; }
+.gjs-pn-btn.gjs-pn-active { color: var(--brand-500) !important; }
+
+.gjs-block {
+  border-radius: var(--r-sm) !important;
+  border: 1px solid var(--border) !important;
+  background: var(--bg-card) !important;
+  transition: box-shadow .15s, border-color .15s;
+}
+.gjs-block:hover {
+  border-color: var(--brand-300) !important;
+  box-shadow: var(--shadow);
+}
+
+.gjs-block-category .gjs-title { font-weight: 700 !important; }
+
+.gjs-cv-canvas { background: var(--bg-app) !important; }
+
+.merge-tag-block {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  padding: .5rem .625rem !important;
+  cursor: grab;
+}
+.merge-tag-block i { color: var(--brand-500); }

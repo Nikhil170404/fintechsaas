@@ -1,0 +1,25 @@
+{# Compact 4-step progress header for the Upload → Map → Design → Send flow.
+   Include with: {% include "_wizard_steps.html" %}
+   Expects `wizard_step` (1-4) set by the including template's route. #}
+<div class="wizard-progress">
+  {% set steps = [
+    (1, 'fa-file-excel', 'Upload Excel', url_for('upload')),
+    (2, 'fa-list-check', 'Map Columns', url_for('map_columns')),
+    (3, 'fa-wand-magic-sparkles', 'Design Email', url_for('wizard_template')),
+    (4, 'fa-paper-plane', 'Review & Send', url_for('clients')),
+  ] %}
+  {% for num, icon, label, href in steps %}
+    {% set state = 'wizard-step-done' if num < wizard_step else ('wizard-step-active' if num == wizard_step else '') %}
+    {% if num < wizard_step %}
+    <a href="{{ href }}" class="wizard-step {{ state }}" style="text-decoration:none;">
+    {% else %}
+    <span class="wizard-step {{ state }}">
+    {% endif %}
+      <span class="wizard-step-num">
+        {% if num < wizard_step %}<i class="fa-solid fa-check"></i>{% else %}{{ num }}{% endif %}
+      </span>
+      <span class="wizard-step-label">{{ label }}</span>
+    {% if num < wizard_step %}</a>{% else %}</span>{% endif %}
+    {% if not loop.last %}<span class="wizard-step-arrow"><i class="fa-solid fa-chevron-right"></i></span>{% endif %}
+  {% endfor %}
+</div>
