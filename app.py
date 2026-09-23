@@ -32,6 +32,7 @@ from modules.onboarding_routes import onboarding_bp
 from modules.security_routes import security_bp
 from modules.ai_routes import ai_bp
 from modules.monitoring import init_sentry, health_status
+from flask_compress import Compress
 
 load_dotenv()
 init_sentry()
@@ -71,6 +72,7 @@ app.config.update(
 
 csrf    = CSRFProtect(app)
 limiter = Limiter(get_remote_address, app=app, default_limits=[], storage_uri="memory://")
+Compress(app)  # gzip all JSON/HTML responses automatically
 
 # ── Blueprints ────────────────────────────────────────────────────────────────
 app.register_blueprint(api_blueprint)
