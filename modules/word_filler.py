@@ -20,6 +20,8 @@ from docx import Document
 from docx.oxml.ns import qn
 from docx.shared import Pt, RGBColor
 
+from modules.libreoffice import find_soffice, profile_dir
+
 
 class WordFiller:
     TXN_HEADERS = {"date", "description", "reference", "debit", "credit", "balance"}
@@ -97,10 +99,18 @@ class WordFiller:
                     yield from cell.paragraphs
 
     def _to_pdf(self, docx_path: Path) -> Path:
+        soffice = find_soffice()
+        if not soffice:
+            raise RuntimeError(
+                "LibreOffice is required to convert Word templates to PDF but "
+                "wasn't found on this server. Install it (see README) or switch "
+                "back to Auto PDF."
+            )
         subprocess.run(
-            ["soffice", "--headless", "--convert-to", "pdf",
-             "--outdir", str(docx_path.parent), str(docx_path)],
-            check=True, capture_output=True,
+            [soffice, "--headless", "--norestore", "--invisible",
+             f"-env:UserInstallation=file://{profile_dir()}",
+             "--convert-to", "pdf", "--outdir", str(docx_path.parent), str(docx_path)],
+            check=True, capture_output=True, timeout=120,
         )
         return docx_path.with_suffix(".pdf")
 

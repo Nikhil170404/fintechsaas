@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Design Email Template – FinTech SaaS{% endblock %}
+{% block title %}Design Your Templates – FinTech SaaS{% endblock %}
 
 {% block content %}
 {% set wizard_step = 3 %}
@@ -7,8 +7,8 @@
 
 <div class="page-header d-flex align-items-center justify-content-between flex-wrap gap-2">
   <div>
-    <h1><i class="fa-solid fa-wand-magic-sparkles me-2 text-primary"></i>Design Your Email Template</h1>
-    <p class="text-muted mb-0">Step 3 of 4 — drag blocks and merge tags onto the canvas, then continue to Review &amp; Send</p>
+    <h1><i class="fa-solid fa-wand-magic-sparkles me-2 text-primary"></i>Design Your Templates</h1>
+    <p class="text-muted mb-0">Step 3 of 4 — set up both the email that gets sent and the PDF statement attached to it, then continue to Review &amp; Send</p>
   </div>
   <div class="d-flex gap-2">
     <a href="{{ url_for('map_columns') }}" class="btn btn-outline-secondary btn-sm">
@@ -23,6 +23,56 @@
   No clients loaded yet — the live preview needs real data. <a href="{{ url_for('upload') }}">Upload an Excel file</a> first.
 </div>
 {% endif %}
+
+<!-- PDF Statement Template — the other half of what gets sent, alongside the email -->
+<div class="card shadow-sm mb-3">
+  <div class="card-header fw-semibold"><i class="fa-solid fa-file-pdf me-2 text-danger"></i>PDF Statement Template</div>
+  <div class="card-body">
+    <p class="text-muted small mb-3">
+      This is the PDF that gets attached to the email. By default it's built automatically (Auto PDF), or upload your own <code>.docx</code> template and every client's statement is generated from <strong>your</strong> layout instead.
+    </p>
+    <div class="row g-3 align-items-start">
+      <div class="col-md-6">
+        <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
+          <span class="fw-semibold">Currently using:</span>
+          {% if has_template %}
+            <span class="badge bg-success"><i class="fa-solid fa-check me-1"></i>Your Word Template</span>
+            <button type="button" class="btn btn-outline-info btn-sm" id="previewPdfTemplateBtn" {{ 'disabled' if not clients }}>
+              <i class="fa-solid fa-eye me-1"></i>Preview
+            </button>
+          {% else %}
+            <span class="badge bg-secondary">Auto PDF (built-in layout)</span>
+          {% endif %}
+        </div>
+        <form method="POST" action="{{ url_for('upload_template') }}" enctype="multipart/form-data" class="d-flex gap-2 flex-wrap">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="from" value="wizard">
+          <input type="file" name="word_template" class="form-control form-control-sm" accept=".docx" required style="max-width:260px">
+          <button class="btn btn-primary btn-sm">{{ 'Replace Template' if has_template else 'Upload Template' }}</button>
+        </form>
+        {% if has_template %}
+        <form method="POST" action="{{ url_for('remove_template') }}" class="mt-2">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="from" value="wizard">
+          <button class="btn btn-outline-danger btn-sm" onclick="return confirm('Switch back to Auto PDF? Your uploaded template file will be deleted.');">
+            <i class="fa-solid fa-trash-can me-1"></i>Remove &amp; use Auto PDF
+          </button>
+        </form>
+        {% endif %}
+      </div>
+      <div class="col-md-6">
+        <small class="text-muted d-block mb-1 fw-semibold">Supported placeholders (same as email merge tags):</small>
+        <small class="text-muted">
+          <code>{{ '{{CLIENT_NAME}}' }}</code> <code>{{ '{{ACCOUNT_NO}}' }}</code> <code>{{ '{{EMAIL}}' }}</code>
+          <code>{{ '{{PHONE}}' }}</code> <code>{{ '{{ADDRESS}}' }}</code> <code>{{ '{{ACCOUNT_TYPE}}' }}</code>
+          <code>{{ '{{STATEMENT_PERIOD}}' }}</code> <code>{{ '{{OPENING_BALANCE}}' }}</code> <code>{{ '{{CLOSING_BALANCE}}' }}</code>
+          <code>{{ '{{TOTAL_DEBIT}}' }}</code> <code>{{ '{{TOTAL_CREDIT}}' }}</code> <code>{{ '{{COMPANY_NAME}}' }}</code>
+        </small>
+        <small class="text-muted d-block mt-2">Add a table with headers <strong>Date | Description | Reference | Debit | Credit | Balance</strong> and each client's transactions fill in automatically.</small>
+      </div>
+    </div>
+  </div>
+</div>
 
 <form method="POST" id="templateForm">
 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -115,6 +165,21 @@
       </div>
       <div class="modal-body p-0">
         <iframe id="wizardPreviewFrame" style="width:100%;height:520px;border:none;"></iframe>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PDF template preview modal -->
+<div class="modal fade" id="pdfTemplatePreviewModal" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="fa-solid fa-file-pdf me-2"></i>PDF Statement Template — <span id="pdfTemplatePreviewClientName"></span></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-0">
+        <iframe id="pdfTemplatePreviewFrame" style="width:100%;height:560px;border:none;"></iframe>
       </div>
     </div>
   </div>
@@ -256,6 +321,32 @@ document.getElementById('previewBtn')?.addEventListener('click', async () => {
     new bootstrap.Modal(document.getElementById('wizardPreviewModal')).show();
   } finally {
     btn.disabled = false;
+  }
+});
+
+// Preview the currently uploaded PDF statement Word template, rendered
+// exactly as LibreOffice would produce it, merged with a real client
+document.getElementById('previewPdfTemplateBtn')?.addEventListener('click', async () => {
+  const btn = document.getElementById('previewPdfTemplateBtn');
+  const accountNo = document.getElementById('previewClientSelect')?.value || '';
+
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+  try {
+    const res = await fetch('/pdf-template/preview', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ account_no: accountNo, period: 'August 2026' }),
+    });
+    const data = await res.json();
+    if (data.error) { alert(data.error); return; }
+    document.getElementById('pdfTemplatePreviewClientName').textContent =
+      data.client ? `${data.client.name} (${data.client.account_no})` : '';
+    document.getElementById('pdfTemplatePreviewFrame').srcdoc = data.html;
+    new bootstrap.Modal(document.getElementById('pdfTemplatePreviewModal')).show();
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fa-solid fa-eye me-1"></i>Preview';
   }
 });
 </script>
