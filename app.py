@@ -26,9 +26,16 @@ from modules.column_detector import ColumnDetector, ALIASES, FIELD_LABELS
 from modules.email_sender import EmailSender
 from modules.excel_reader import ExcelReader
 from modules.statement_builder import StatementBuilder
-from modules import local_ai
+from modules.api_routes import api as api_blueprint
+from modules.billing_routes import billing_bp
+from modules.onboarding_routes import onboarding_bp
+from modules.security_routes import security_bp
+from modules.ai_routes import ai_bp
+from modules.monitoring import init_sentry, health_status
+from flask_compress import Compress
 
 load_dotenv()
+init_sentry()
 
 DATA_DIR      = Path("data")
 TENANTS_DIR   = DATA_DIR / "tenants"
@@ -65,6 +72,22 @@ app.config.update(
 
 csrf    = CSRFProtect(app)
 limiter = Limiter(get_remote_address, app=app, default_limits=[], storage_uri="memory://")
+Compress(app)  # gzip all JSON/HTML responses automatically
+
+# ── Blueprints ────────────────────────────────────────────────────────────────
+app.register_blueprint(api_blueprint)
+csrf.exempt(api_blueprint)          # Bearer token auth, not session/CSRF
+
+app.register_blueprint(billing_bp)
+app.register_blueprint(onboarding_bp)
+app.register_blueprint(security_bp)
+app.register_blueprint(ai_bp)
+
+# ── HTTPS redirect in production ──────────────────────────────────────────────
+@app.before_request
+def _https_redirect():
+    if not app.debug and request.headers.get("X-Forwarded-Proto") == "http":
+        return redirect(request.url.replace("http://", "https://", 1), 301)
 
 # ── Security headers on every response ────────────────────────────────────────
 @app.after_request
@@ -249,9 +272,16 @@ def signup():
         session["tenant_id"] = tenant_id
         session["username"]  = username
         session["role"]      = "owner"
+        # Initialise billing (14-day Pro trial)
+        from modules.billing import get_subscription
+        get_subscription(tenant_id)
+        # Record consent
+        from modules.compliance import record_consent
+        record_consent(tenant_id, user_id, ["data_processing"], True,
+                       ip=request.remote_addr)
         _audit("SIGNUP", f"company={company}")
-        flash("Welcome! Your account has been created.", "success")
-        return redirect(url_for("index"))
+        flash("Welcome! Let's set up your account.", "success")
+        return redirect(url_for("onboarding.index"))
 
     return render_template("signup.html")
 
@@ -277,13 +307,24 @@ def login():
         user = db.get_user_by_username(username)
         pw_ok = user is not None and check_password_hash(user["password_hash"], password)
         if pw_ok:
+            _clear_attempts(ip)
+            # Check 2FA before completing login
+            from modules.security_2fa import is_enabled as totp_enabled
+            if totp_enabled(user["id"]):
+                session["2fa_pending_user_id"] = user["id"]
+                return redirect(url_for("security_2fa.challenge"))
             session.permanent = True
             session["user_id"]   = user["id"]
             session["tenant_id"] = user["tenant_id"]
             session["username"]  = user["username"]
             session["role"]      = user["role"]
-            _clear_attempts(ip)
+            from modules.audit_chain import add as chain_audit
+            chain_audit(user["tenant_id"], ip, username, "LOGIN_SUCCESS", "")
             _audit("LOGIN_SUCCESS", username)
+            # Redirect new users to onboarding wizard
+            from modules.onboarding_routes import is_complete
+            if not is_complete(user["tenant_id"]):
+                return redirect(url_for("onboarding.index"))
             return redirect(url_for("index"))
         _record_failure(ip)
         db.add_audit(None, ip, username or "anon", "LOGIN_FAILED", username)
