@@ -26,11 +26,11 @@ from modules.column_detector import ColumnDetector, ALIASES, FIELD_LABELS
 from modules.email_sender import EmailSender
 from modules.excel_reader import ExcelReader
 from modules.statement_builder import StatementBuilder
-from modules import local_ai
 from modules.api_routes import api as api_blueprint
 from modules.billing_routes import billing_bp
 from modules.onboarding_routes import onboarding_bp
 from modules.security_routes import security_bp
+from modules.ai_routes import ai_bp
 from modules.monitoring import init_sentry, health_status
 
 load_dotenv()
@@ -79,6 +79,7 @@ csrf.exempt(api_blueprint)          # Bearer token auth, not session/CSRF
 app.register_blueprint(billing_bp)
 app.register_blueprint(onboarding_bp)
 app.register_blueprint(security_bp)
+app.register_blueprint(ai_bp)
 
 # ── HTTPS redirect in production ──────────────────────────────────────────────
 @app.before_request

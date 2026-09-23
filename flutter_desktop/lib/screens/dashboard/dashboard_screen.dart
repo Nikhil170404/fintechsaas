@@ -13,6 +13,7 @@ import '../email/email_screen.dart';
 import '../integrations/integrations_screen.dart';
 import '../settings/settings_screen.dart';
 import '../audit/audit_screen.dart';
+import '../ai/ai_chat_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   final int selectedIndex;
@@ -99,6 +100,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       case 8:  return const SettingsScreen();
       case 9:  return const TeamScreen();
       case 10: return const AuditScreen();
+      case 11: return const AiChatScreen();
       default:
         return _DashboardHome(
           clientCount: _clientCount,
@@ -210,6 +212,7 @@ class _DashboardHome extends StatelessWidget {
               _QuickAction(icon: Icons.pie_chart, label: 'Portfolio\nReport', subtitle: 'Investment report', color: const Color(0xFF7B1FA2), onTap: () => onNavigate?.call(5)),
               _QuickAction(icon: Icons.email, label: 'Send\nEmails', subtitle: 'Bulk delivery', color: AppTheme.warning, onTap: () => onNavigate?.call(6)),
               _QuickAction(icon: Icons.hub, label: 'Connect\nApps', subtitle: 'Zoho, Gmail...', color: const Color(0xFFD32F2F), onTap: () => onNavigate?.call(7)),
+              _QuickAction(icon: Icons.smart_toy, label: 'AI\nAssistant', subtitle: 'Local AI (Ollama)', color: const Color(0xFF00897B), onTap: () => onNavigate?.call(11)),
             ],
           ),
 

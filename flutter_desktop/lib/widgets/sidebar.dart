@@ -30,6 +30,7 @@ const _items = [
   SidebarItem(icon: Icons.settings_outlined, activeIcon: Icons.settings, label: 'Settings', index: 8, requiresOwner: true),
   SidebarItem(icon: Icons.manage_accounts_outlined, activeIcon: Icons.manage_accounts, label: 'Team', index: 9, requiresOwner: true),
   SidebarItem(icon: Icons.history_outlined, activeIcon: Icons.history, label: 'Audit Log', index: 10, requiresOwner: true),
+  SidebarItem(icon: Icons.smart_toy_outlined, activeIcon: Icons.smart_toy, label: 'AI Assistant', index: 11),
 ];
 
 class AppSidebar extends StatelessWidget {
