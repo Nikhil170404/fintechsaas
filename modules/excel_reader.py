@@ -61,12 +61,19 @@ class ExcelReader:
 
         clients_df = self._read_sheet(client_sheet)
         c_col = {**DEFAULT_MAP["clients"], **self.mapping.get("clients", {})}
+        mapped_cols = set(c_col.values())
 
         clients = []
         for _, row in clients_df.iterrows():
             acct = _str(row.get(c_col["account_no"], ""))
             if not acct:
                 continue
+            # Every column not already used for a fixed field (account_no, name,
+            # email, ...) is kept as-is, keyed by its own Excel header — this is
+            # what lets an email template reference ANY column from the sheet,
+            # not just the fixed set, e.g. {{Branch}} or {{RM Name}}.
+            extra = {col: _str(row.get(col, "")) for col in clients_df.columns
+                     if col not in mapped_cols}
             clients.append({
                 "account_no":      acct,
                 "name":            _str(row.get(c_col["name"], "")),
@@ -75,6 +82,7 @@ class ExcelReader:
                 "address":         _str(row.get(c_col["address"], "")),
                 "account_type":    _str(row.get(c_col["account_type"], "")),
                 "opening_balance": _to_float(row.get(c_col["opening_balance"], 0)),
+                "extra_columns":   extra,
                 "transactions":    self._get_transactions(acct, txn_sheet),
             })
         return clients
@@ -114,6 +122,7 @@ class ExcelReader:
 
         c_col = {**DEFAULT_MAP["clients"], **self.mapping.get("clients", {})}
         t_col = {**DEFAULT_MAP["transactions"], **self.mapping.get("transactions", {})}
+        mapped_cols = set(c_col.values()) | set(t_col.values())
 
         clients: dict[str, dict] = {}
         for _, row in df.iterrows():
@@ -121,6 +130,8 @@ class ExcelReader:
             if not acct:
                 continue
             if acct not in clients:
+                extra = {col: _str(row.get(col, "")) for col in df.columns
+                         if col not in mapped_cols}
                 clients[acct] = {
                     "account_no":      acct,
                     "name":            _str(row.get(c_col["name"], "")),
@@ -129,6 +140,7 @@ class ExcelReader:
                     "address":         _str(row.get(c_col.get("address", "__"), "")),
                     "account_type":    _str(row.get(c_col.get("account_type", "__"), "")),
                     "opening_balance": 0.0,
+                    "extra_columns":   extra,
                     "transactions":    [],
                 }
             clients[acct]["transactions"].append({

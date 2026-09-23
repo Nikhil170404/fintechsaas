@@ -3,10 +3,13 @@
 
 {% block content %}
 
+{% set wizard_step = 1 %}
+{% include "_wizard_steps.html" %}
+
 <div class="page-header d-flex align-items-center justify-content-between flex-wrap gap-2">
   <div>
     <h1><i class="fa-solid fa-file-excel me-2" style="color:#16a34a"></i>Upload Client Data</h1>
-    <p class="subtitle">Step 1 — import your Excel file to get started</p>
+    <p class="subtitle">Step 1 of 4 — import your Excel file to get started</p>
   </div>
   <a href="{{ url_for('download_template') }}" class="btn btn-outline-secondary" target="_blank">
     <i class="fa-solid fa-download"></i> Download Sample Template

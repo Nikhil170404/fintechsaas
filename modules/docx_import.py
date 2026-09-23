@@ -11,11 +11,12 @@ renders the document the way Word would and preserves that formatting.
 If LibreOffice isn't installed on the host, it falls back to mammoth so
 the feature still works, just with lower fidelity.
 """
-import re
 import shutil
 import subprocess
 import tempfile
 from pathlib import Path
+
+from modules.html_utils import inline_and_extract_body
 
 _KNOWN_SOFFICE_PATHS = (
     "/Applications/LibreOffice.app/Contents/MacOS/soffice",  # macOS
@@ -34,35 +35,6 @@ def _find_soffice() -> str | None:
     return None
 
 
-def _prune_style_block(html: str) -> str:
-    """Keep only class-qualified CSS rules (e.g. h1.western { color: ... }).
-
-    LibreOffice's HTML export already writes per-element formatting inline
-    (align attributes, <font> tags, table border styles). The <style> block
-    mostly restates that as bare tag-selector rules (e.g. a blanket `p {
-    text-align: start }`) which, if inlined naively, would override the
-    more specific per-element attributes an individual paragraph already
-    has (e.g. a genuinely centered paragraph's align="center"). Dropping
-    bare tag-selector rules and keeping only class-qualified ones (mainly
-    heading color/font) avoids that clobbering.
-    """
-    def _filter(m: re.Match) -> str:
-        css = m.group(1)
-        rules = re.findall(r'([^{}]+)\{([^{}]*)\}', css)
-        kept = [f"{sel.strip()} {{{body}}}" for sel, body in rules if '.' in sel]
-        return '<style type="text/css">' + '\n'.join(kept) + '</style>'
-    return re.sub(r'<style[^>]*>([\s\S]*?)</style>', _filter, html, flags=re.IGNORECASE)
-
-
-def _inline_and_extract_body(html: str) -> str:
-    from premailer import Premailer
-    pruned = _prune_style_block(html)
-    inlined = Premailer(pruned, keep_style_tags=False, remove_classes=True,
-                         cssutils_logging_level="CRITICAL").transform()
-    m = re.search(r'<body[^>]*>([\s\S]*?)</body>', inlined, re.IGNORECASE)
-    return (m.group(1) if m else inlined).strip()
-
-
 def _convert_with_libreoffice(soffice: str, file_storage) -> str:
     with tempfile.TemporaryDirectory() as tmp:
         tmp_path = Path(tmp)
@@ -76,7 +48,7 @@ def _convert_with_libreoffice(soffice: str, file_storage) -> str:
         )
         html_path = tmp_path / "input.html"
         raw_html = html_path.read_text(encoding="utf-8", errors="replace")
-    return _inline_and_extract_body(raw_html)
+    return inline_and_extract_body(raw_html)
 
 
 def _convert_with_mammoth(file_storage) -> str:

@@ -2,12 +2,18 @@
 {% block title %}Clients & Statements – FinTech SaaS{% endblock %}
 
 {% block content %}
+{% set wizard_step = 4 %}
+{% include "_wizard_steps.html" %}
+
 <div class="page-header d-flex align-items-center justify-content-between flex-wrap gap-2">
   <div>
-    <h1><i class="fa-solid fa-users me-2 text-primary"></i>Clients &amp; Statements</h1>
-    <p class="text-muted mb-0">{{ clients|length }} client(s) loaded</p>
+    <h1><i class="fa-solid fa-users me-2 text-primary"></i>Review &amp; Send</h1>
+    <p class="text-muted mb-0">Step 4 of 4 — {{ clients|length }} client(s) loaded</p>
   </div>
   <div class="d-flex gap-2 flex-wrap">
+    <a href="{{ url_for('wizard_template') }}" class="btn btn-outline-secondary btn-sm">
+      <i class="fa-solid fa-arrow-left me-1"></i>Edit Email Template
+    </a>
     <a href="{{ url_for('upload') }}" class="btn btn-outline-secondary btn-sm">
       <i class="fa-solid fa-upload me-1"></i>Re-upload
     </a>
@@ -88,15 +94,28 @@
           <input type="text" id="email_period" class="form-control" placeholder="e.g. August 2026">
         </div>
         <div class="col-md-6 d-flex align-items-end">
-          <div class="form-check">
-            <input class="form-check-input" type="checkbox" id="selectAll" checked>
-            <label class="form-check-label" for="selectAll">Select all clients</label>
+          <div id="selectionSummary" class="fw-semibold" style="font-size:.875rem;">
+            <i class="fa-solid fa-users me-1 text-info"></i>
+            <span id="selectedCount">0</span> of {{ clients|length }} client(s) selected —
+            check the boxes in the table below to choose recipients.
           </div>
         </div>
       </div>
-      <button class="btn btn-info text-white" id="sendEmailsBtn">
-        <i class="fa-solid fa-paper-plane me-2"></i>Send Emails Now
-      </button>
+      <div class="d-flex gap-2 flex-wrap">
+        <button class="btn btn-info text-white" id="sendEmailsBtn" disabled>
+          <i class="fa-solid fa-paper-plane me-2"></i>Send Emails Now
+        </button>
+        <div class="input-group" style="max-width:360px">
+          <select class="form-select" id="previewClientSelect">
+            {% for c in clients %}
+            <option value="{{ c.account_no }}">{{ c.name }} ({{ c.account_no }})</option>
+            {% endfor %}
+          </select>
+          <button type="button" class="btn btn-outline-secondary" id="previewEmailBtn">
+            <i class="fa-solid fa-eye me-1"></i>Preview Their Email
+          </button>
+        </div>
+      </div>
       <div id="emailProgress" class="mt-3 d-none">
         <div class="progress"><div class="progress-bar progress-bar-striped progress-bar-animated bg-info" style="width:100%"></div></div>
         <small class="text-muted">Sending emails…</small>
@@ -172,19 +191,48 @@
   </div>
 </div>
 
+<!-- Email preview modal -->
+<div class="modal fade" id="emailPreviewModal" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="fa-solid fa-envelope me-2"></i>Email Preview — <span id="previewClientName"></span></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-0">
+        <iframe id="emailPreviewFrame" style="width:100%;height:520px;border:none;"></iframe>
+      </div>
+    </div>
+  </div>
+</div>
+
 {% endif %}
 {% endblock %}
 
 {% block scripts %}
 <script>
+// Live "N selected" count — the single source of truth for who receives the
+// email is the per-row checkboxes below; this keeps the Send button's state
+// and the visible count always in sync with them, so what you see is exactly
+// who gets emailed.
+function updateSelectionSummary() {
+  const checked = document.querySelectorAll('.client-check:checked').length;
+  const countEl = document.getElementById('selectedCount');
+  const sendBtn = document.getElementById('sendEmailsBtn');
+  if (countEl) countEl.textContent = checked;
+  if (sendBtn) sendBtn.disabled = checked === 0;
+}
+
 // Check all toggle
 const checkAll = document.getElementById('checkAll');
-const selectAll = document.getElementById('selectAll');
 if (checkAll) {
   checkAll.addEventListener('change', () => {
     document.querySelectorAll('.client-check').forEach(c => c.checked = checkAll.checked);
+    updateSelectionSummary();
   });
 }
+document.querySelectorAll('.client-check').forEach(c => c.addEventListener('change', updateSelectionSummary));
+updateSelectionSummary();
 
 // Generate All
 document.getElementById('generateAllBtn')?.addEventListener('click', async () => {
@@ -237,7 +285,11 @@ document.getElementById('sendEmailsBtn')?.addEventListener('click', async () => 
   const selected = [...document.querySelectorAll('.client-check:checked')].map(c => c.value);
   const period = document.getElementById('email_period').value;
 
-  if (!confirm(`Send emails to ${selected.length} client(s)?`)) return;
+  if (selected.length === 0) {
+    alert('No clients selected — check at least one client in the table before sending.');
+    return;
+  }
+  if (!confirm(`Send emails to exactly these ${selected.length} client(s)? No one else will be emailed.`)) return;
 
   btn.disabled = true;
   progress.classList.remove('d-none');
@@ -305,6 +357,39 @@ document.getElementById('mergeStatementsBtn')?.addEventListener('click', async (
   } finally {
     btn.disabled = false;
     prog.classList.add('d-none');
+  }
+});
+
+// Preview a real client's merged email before sending
+document.getElementById('previewEmailBtn')?.addEventListener('click', async () => {
+  const btn = document.getElementById('previewEmailBtn');
+  const select = document.getElementById('previewClientSelect');
+  const accountNo = select.value;
+  const period = document.getElementById('email_period').value || 'August 2026';
+
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+  try {
+    const res = await fetch('/wizard/template/preview', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        html: {{ (settings.email_html if settings and settings.email_type == 'html' else settings.email_body if settings else '') | tojson }},
+        account_no: accountNo,
+        period: period,
+      })
+    });
+    const data = await res.json();
+    if (data.error) { alert(data.error); return; }
+    document.getElementById('previewClientName').textContent = `${data.client.name} (${data.client.account_no})`;
+    const isHtml = {{ 'true' if settings and settings.email_type == 'html' else 'false' }};
+    document.getElementById('emailPreviewFrame').srcdoc = isHtml
+      ? data.html
+      : `<pre style="white-space:pre-wrap;font-family:Inter,system-ui,sans-serif;padding:1.5rem;margin:0;font-size:14px;line-height:1.6;">${data.html.replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]))}</pre>`;
+    new bootstrap.Modal(document.getElementById('emailPreviewModal')).show();
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fa-solid fa-eye me-1"></i>Preview Their Email';
   }
 });
 </script>

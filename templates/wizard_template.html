@@ -1,0 +1,262 @@
+{% extends "base.html" %}
+{% block title %}Design Email Template – FinTech SaaS{% endblock %}
+
+{% block content %}
+{% set wizard_step = 3 %}
+{% include "_wizard_steps.html" %}
+
+<div class="page-header d-flex align-items-center justify-content-between flex-wrap gap-2">
+  <div>
+    <h1><i class="fa-solid fa-wand-magic-sparkles me-2 text-primary"></i>Design Your Email Template</h1>
+    <p class="text-muted mb-0">Step 3 of 4 — drag blocks and merge tags onto the canvas, then continue to Review &amp; Send</p>
+  </div>
+  <div class="d-flex gap-2">
+    <a href="{{ url_for('map_columns') }}" class="btn btn-outline-secondary btn-sm">
+      <i class="fa-solid fa-arrow-left me-1"></i>Back
+    </a>
+  </div>
+</div>
+
+{% if not clients %}
+<div class="alert alert-warning">
+  <i class="fa-solid fa-triangle-exclamation me-2"></i>
+  No clients loaded yet — the live preview needs real data. <a href="{{ url_for('upload') }}">Upload an Excel file</a> first.
+</div>
+{% endif %}
+
+<form method="POST" id="templateForm">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<input type="hidden" name="email_html" id="emailHtmlField">
+
+<div class="row g-3">
+
+  <!-- Sidebar: subject, type, merge-tag reference, preview, save -->
+  <div class="col-lg-3 order-lg-2">
+    <div class="card shadow-sm mb-3">
+      <div class="card-header fw-semibold"><i class="fa-solid fa-envelope me-2 text-primary"></i>Email Details</div>
+      <div class="card-body">
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Subject Line</label>
+          <input type="text" name="email_subject" class="form-control form-control-sm" value="{{ cfg.email_subject }}">
+        </div>
+        <div class="mb-1">
+          <label class="form-label fw-semibold">Format</label>
+          <select name="email_type" id="emailTypeSelect" class="form-select form-select-sm">
+            <option value="html"  {{ 'selected' if cfg.email_type == 'html' }}>Drag-and-drop (HTML)</option>
+            <option value="plain" {{ 'selected' if cfg.email_type == 'plain' }}>Plain text</option>
+          </select>
+        </div>
+        <label class="btn btn-outline-primary btn-sm w-100 mb-0" title="Import from Word .docx">
+          <i class="fa-solid fa-file-word me-1"></i>Import from Word
+          <input type="file" id="wordImportFile" accept=".docx" class="d-none">
+        </label>
+        <div id="importMsg" class="mt-2"></div>
+      </div>
+    </div>
+
+    <div class="card shadow-sm mb-3" id="plainBodyCard" {{ 'style=display:none;' if cfg.email_type != 'plain' }}>
+      <div class="card-header fw-semibold"><i class="fa-solid fa-align-left me-2 text-secondary"></i>Plain Text Body</div>
+      <div class="card-body">
+        <textarea name="email_body_plain" id="plainBodyArea" class="form-control font-monospace" rows="10" style="font-size:.8rem">{{ cfg.email_body }}</textarea>
+        <small class="text-muted d-block mt-2">Drag tags don't apply here — type placeholders directly, e.g. <code>{{ '{{CLIENT_NAME}}' }}</code></small>
+      </div>
+    </div>
+
+    <div class="card shadow-sm mb-3">
+      <div class="card-header fw-semibold"><i class="fa-solid fa-tags me-2 text-success"></i>Merge Tags</div>
+      <div class="card-body py-2">
+        <p class="text-muted small mb-2">Drag a tag and drop it exactly where you want it in the text on the canvas — it lands right at the drop point, mid-sentence included.</p>
+        <div class="d-flex flex-wrap gap-1" id="mergeTagChips">
+          {% for tag, label in merge_tags %}
+          <span class="badge bg-light text-dark border merge-tag-chip" draggable="true" data-tag="{{ tag }}" style="font-weight:500;cursor:grab;">
+            <i class="fa-solid fa-grip-vertical me-1 text-muted" style="font-size:.65em;"></i>{{ label }}
+          </span>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <div class="card shadow-sm mb-3">
+      <div class="card-header fw-semibold"><i class="fa-solid fa-eye me-2 text-info"></i>Preview With Real Client</div>
+      <div class="card-body">
+        <select class="form-select form-select-sm mb-2" id="previewClientSelect" {{ 'disabled' if not clients }}>
+          {% for c in clients %}
+          <option value="{{ c.account_no }}">{{ c.name }} ({{ c.account_no }})</option>
+          {% endfor %}
+        </select>
+        <button type="button" class="btn btn-outline-info btn-sm w-100" id="previewBtn" {{ 'disabled' if not clients }}>
+          <i class="fa-solid fa-eye me-1"></i>Preview
+        </button>
+      </div>
+    </div>
+
+    <button type="submit" class="btn btn-success w-100">
+      <i class="fa-solid fa-floppy-disk me-2"></i>Save &amp; Continue
+    </button>
+  </div>
+
+  <!-- Main: GrapesJS canvas -->
+  <div class="col-lg-9 order-lg-1">
+    <div class="card shadow-sm" id="htmlEditorCard" {{ 'style=display:none;' if cfg.email_type != 'html' }}>
+      <div id="gjs">{{ editor_html | safe }}</div>
+    </div>
+  </div>
+
+</div>
+</form>
+
+<!-- Preview modal -->
+<div class="modal fade" id="wizardPreviewModal" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="fa-solid fa-envelope me-2"></i>Preview — <span id="wizardPreviewClientName"></span></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-0">
+        <iframe id="wizardPreviewFrame" style="width:100%;height:520px;border:none;"></iframe>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<link href="https://unpkg.com/grapesjs/dist/css/grapes.min.css" rel="stylesheet">
+<script src="https://unpkg.com/grapesjs/dist/grapes.min.js"></script>
+<script src="https://unpkg.com/grapesjs-preset-newsletter/dist/index.js"></script>
+<script>
+const MERGE_TAGS = {{ merge_tags | tojson }};
+
+let editor = null;
+function initEditor() {
+  if (editor) return;
+  editor = grapesjs.init({
+    container: '#gjs',
+    height: '640px',
+    fromElement: true,
+    storageManager: false,
+    plugins: ['grapesjs-preset-newsletter'],
+    pluginsOpts: {
+      'grapesjs-preset-newsletter': {
+        modalTitleImport: 'Import HTML',
+        cellStyle: { 'padding': '0', 'vertical-align': 'top' },
+      },
+    },
+  });
+
+  const bm = editor.BlockManager;
+  const OPEN = '{' + '{', CLOSE = '}' + '}';
+  MERGE_TAGS.forEach(([tag, label], i) => {
+    const blockId = 'tag-' + tag.toLowerCase().replace(/[^a-z0-9]+/g, '-') + '-' + i;
+    bm.add(blockId, {
+      label: `<div class="merge-tag-block"><i class="fa-solid fa-tag"></i><span>${label}</span></div>`,
+      category: 'Merge Tags',
+      content: '<span data-gjs-type="text" style="display:inline;">' + OPEN + tag + CLOSE + '</span>',
+    });
+  });
+
+  editor.on('load', wireCanvasDrop);
+}
+initEditor();
+
+// Sidebar merge-tag chips: double-click into a text block on the canvas to
+// start editing it, then drag a tag from here and drop it exactly where you
+// want it — mid-sentence included. The browser inserts it right at the
+// drop-point caret position, and GrapesJS picks up the change automatically.
+document.querySelectorAll('.merge-tag-chip').forEach(chip => {
+  chip.addEventListener('dragstart', (e) => {
+    const OPEN = '{' + '{', CLOSE = '}' + '}';
+    e.dataTransfer.setData('text/plain', OPEN + chip.dataset.tag + CLOSE);
+    e.dataTransfer.effectAllowed = 'copy';
+  });
+});
+
+// Double-click a text block to start editing it (GrapesJS makes it a native
+// contenteditable region at that point) — dropping a tag onto that active
+// region is then handled natively by the browser at the exact drop-point
+// caret position, and GrapesJS's own RTE sync picks up the change on its
+// own. We deliberately do NOT also insert the text ourselves here: doing
+// so alongside the browser's native contenteditable drop is what caused
+// tags to appear twice — the browser was already inserting it correctly.
+function wireCanvasDrop() {
+  const body = editor.Canvas.getBody();
+  if (!body || body.dataset.dropWired) return;
+  body.dataset.dropWired = '1';
+
+  body.addEventListener('dragover', (e) => {
+    if (e.target.isContentEditable) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'copy';
+    }
+  });
+}
+
+// Toggle HTML editor / plain text body based on format selector
+const emailTypeSelect = document.getElementById('emailTypeSelect');
+function syncFormat() {
+  const isHtml = emailTypeSelect.value === 'html';
+  document.getElementById('htmlEditorCard').style.display = isHtml ? '' : 'none';
+  document.getElementById('plainBodyCard').style.display = isHtml ? 'none' : '';
+}
+emailTypeSelect.addEventListener('change', syncFormat);
+
+// Save: pull HTML+CSS out of GrapesJS into the hidden field before submit
+document.getElementById('templateForm').addEventListener('submit', () => {
+  if (editor) {
+    const html = editor.getHtml();
+    const css = editor.getCss();
+    document.getElementById('emailHtmlField').value = `<style>${css}</style>${html}`;
+  }
+});
+
+// Import from Word — reuses the existing high-fidelity docx->HTML backend
+document.getElementById('wordImportFile')?.addEventListener('change', async function() {
+  const file = this.files[0];
+  const msg  = document.getElementById('importMsg');
+  if (!file) return;
+  msg.innerHTML = '<small class="text-muted"><i class="fa-solid fa-spinner fa-spin me-1"></i>Converting Word document…</small>';
+  const fd = new FormData();
+  fd.append('template_file', file);
+  const r = await fetch('/import-email-template', { method: 'POST', body: fd });
+  const d = await r.json();
+  if (d.ok) {
+    emailTypeSelect.value = 'html';
+    syncFormat();
+    if (editor) editor.setComponents(d.html);
+    msg.innerHTML = '<small class="text-success"><i class="fa-solid fa-check me-1"></i>Word document imported! Review on the canvas &amp; save.</small>';
+  } else {
+    msg.innerHTML = `<small class="text-danger">${d.error}</small>`;
+  }
+  this.value = '';
+});
+
+// Preview with a real uploaded client
+document.getElementById('previewBtn')?.addEventListener('click', async () => {
+  const btn = document.getElementById('previewBtn');
+  const accountNo = document.getElementById('previewClientSelect').value;
+  const isHtml = emailTypeSelect.value === 'html';
+  const html = isHtml
+    ? (editor ? `<style>${editor.getCss()}</style>${editor.getHtml()}` : '')
+    : document.getElementById('plainBodyArea').value;
+
+  btn.disabled = true;
+  try {
+    const res = await fetch('/wizard/template/preview', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ html, account_no: accountNo, period: 'August 2026' }),
+    });
+    const data = await res.json();
+    if (data.error) { alert(data.error); return; }
+    document.getElementById('wizardPreviewClientName').textContent = `${data.client.name} (${data.client.account_no})`;
+    document.getElementById('wizardPreviewFrame').srcdoc = isHtml
+      ? data.html
+      : `<pre style="white-space:pre-wrap;font-family:Inter,system-ui,sans-serif;padding:1.5rem;margin:0;font-size:14px;line-height:1.6;">${data.html.replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]))}</pre>`;
+    new bootstrap.Modal(document.getElementById('wizardPreviewModal')).show();
+  } finally {
+    btn.disabled = false;
+  }
+});
+</script>
+{% endblock %}
