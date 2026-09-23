@@ -5,30 +5,30 @@
   --sidebar-w: 260px;
 
   /* Brand */
-  --brand-900: #0f2342;
-  --brand-700: #1e3a5f;
-  --brand-500: #2e6db4;
-  --brand-300: #6aaad4;
-  --brand-100: #e8f2fb;
-  --brand-50:  #f4f9ff;
+  --brand-900: #102a43;
+  --brand-700: #1e4f7a;
+  --brand-500: #2563a6;
+  --brand-300: #91b9dc;
+  --brand-100: #e9f2fa;
+  --brand-50:  #f6f9fc;
 
   /* Semantic */
-  --success:    #17a34a;
-  --success-bg: #ecfdf5;
-  --warning:    #d97706;
-  --warning-bg: #fffbeb;
-  --danger:     #dc2626;
-  --danger-bg:  #fef2f2;
-  --info:       #0284c7;
-  --info-bg:    #f0f9ff;
+  --success:    #2f7d57;
+  --success-bg: #edf7f1;
+  --warning:    #1e4f7a;
+  --warning-bg: #e9f2fa;
+  --danger:     #9b2c2c;
+  --danger-bg:  #fcf1f1;
+  --info:       #2563a6;
+  --info-bg:    #e9f2fa;
 
   /* Neutral */
-  --bg-app:   #f0f4fa;
+  --bg-app:   #f5f7f9;
   --bg-card:  #ffffff;
   --bg-row:   #f8fafd;
-  --text-h:   #0f172a;
-  --text-b:   #334155;
-  --text-m:   #64748b;
+  --text-h:   #102a43;
+  --text-b:   #34495e;
+  --text-m:   #617286;
   --text-d:   #94a3b8;
   --border:   #e2e8f0;
   --border-m: #cbd5e1;
@@ -286,6 +286,10 @@ h1, h2, h3, h4, h5, h6 {
 /* ── Page header ──────────────────────────────────────────────────────────── */
 .page-header {
   margin-bottom: 1.75rem;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
 }
 
 .page-header h1 {
@@ -299,6 +303,44 @@ h1, h2, h3, h4, h5, h6 {
   font-size: .9375rem;
   margin-top: .25rem;
 }
+
+.eyebrow {
+  color: var(--brand-700);
+  font-size: .75rem;
+  font-weight: 700;
+  letter-spacing: .08em;
+  margin: 0 0 .4rem;
+  text-transform: uppercase;
+}
+
+.page-intro {
+  color: var(--text-m);
+  font-size: .95rem;
+  margin: .35rem 0 0;
+}
+
+.page-actions {
+  display: flex;
+  gap: .65rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.card-title { color: var(--text-h); font-size: .95rem; font-weight: 700; }
+.card-caption { color: var(--text-m); font-size: .8rem; font-weight: 400; margin-top: .1rem; }
+
+.status {
+  align-items: center;
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: .68rem;
+  font-weight: 700;
+  line-height: 1;
+  padding: .34rem .55rem;
+}
+.status-primary { background: var(--brand-100); color: var(--brand-700); }
+.status-success { background: var(--success-bg); color: var(--success); }
+.status-muted { background: var(--bg-row); color: var(--text-m); }
 
 /* ── Flash messages ───────────────────────────────────────────────────────── */
 .flash-container {
@@ -390,12 +432,9 @@ h1, h2, h3, h4, h5, h6 {
   margin-top: .25rem;
 }
 
-.bg-blue-soft    { background: #dbeafe; }
-.bg-green-soft   { background: #dcfce7; }
-.bg-amber-soft   { background: #fef9c3; }
-.bg-sky-soft     { background: #e0f2fe; }
-.bg-purple-soft  { background: #ede9fe; }
-.bg-rose-soft    { background: #ffe4e6; }
+.bg-blue-soft    { background: var(--brand-100); color: var(--brand-700); }
+.bg-green-soft   { background: var(--success-bg); color: var(--success); }
+.bg-amber-soft, .bg-sky-soft, .bg-purple-soft, .bg-rose-soft { background: var(--brand-100); color: var(--brand-700); }
 
 /* ── Workflow / Steps ─────────────────────────────────────────────────────── */
 .steps-track {
@@ -421,8 +460,8 @@ h1, h2, h3, h4, h5, h6 {
 .step-card:hover { box-shadow: var(--shadow); }
 
 .step-card.step-done {
-  border-color: #86efac;
-  background: #f0fdf4;
+  border-color: color-mix(in srgb, var(--success) 40%, white);
+  background: var(--success-bg);
 }
 
 .step-card.step-active {
@@ -585,13 +624,13 @@ h1, h2, h3, h4, h5, h6 {
 
 /* ── Tip box ──────────────────────────────────────────────────────────────── */
 .tip-box {
-  background: var(--warning-bg);
-  border: 1px solid #fde68a;
-  border-left: 4px solid var(--warning);
+  background: var(--brand-50);
+  border: 1px solid var(--brand-100);
+  border-left: 4px solid var(--brand-500);
   border-radius: var(--r);
   padding: .75rem 1rem;
   font-size: .8125rem;
-  color: #78350f;
+  color: var(--text-b);
   display: flex;
   gap: .625rem;
   align-items: flex-start;
@@ -716,6 +755,15 @@ h1, h2, h3, h4, h5, h6 {
 
 /* Disabled state */
 .btn:disabled { opacity: .5; cursor: not-allowed; }
+
+@media (max-width: 700px) {
+  .main-content { padding: 5rem 1rem 1.5rem; }
+  .page-header { align-items: flex-start; flex-direction: column; }
+  .page-actions { justify-content: flex-start; }
+  .page-actions .btn { width: 100%; justify-content: center; }
+  .steps-track { flex-direction: column; }
+  .step-connector { align-self: center; min-height: 1.5rem; transform: rotate(90deg); }
+}
 
 /* ── Tables ───────────────────────────────────────────────────────────────── */
 .table {

@@ -4,6 +4,7 @@ from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from pathlib import Path
+from typing import Iterable
 
 
 class EmailSender:
@@ -23,8 +24,13 @@ class EmailSender:
         html_body: str | None = None,
         attachment_path: Path | None = None,
         attachment_name: str | None = None,
+        attachments: Iterable[tuple[Path, str | None]] | None = None,
     ):
-        if html_body and attachment_path:
+        attachment_items = list(attachments or [])
+        if attachment_path:
+            attachment_items.insert(0, (attachment_path, attachment_name))
+
+        if html_body and attachment_items:
             # RFC 2387: multipart/mixed wraps a multipart/alternative inner part + attachment
             inner = MIMEMultipart("alternative")
             inner.attach(MIMEText(body, "plain", "utf-8"))
@@ -43,9 +49,9 @@ class EmailSender:
         msg["To"] = f"{to_name} <{to_email}>"
         msg["Subject"] = subject
 
-        if attachment_path:
-            fname = attachment_name or Path(attachment_path).name
-            with open(attachment_path, "rb") as f:
+        for path, label in attachment_items:
+            fname = label or Path(path).name
+            with open(path, "rb") as f:
                 part = MIMEApplication(f.read(), Name=fname)
             part["Content-Disposition"] = f'attachment; filename="{fname}"'
             msg.attach(part)

@@ -15,6 +15,7 @@
   <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-branding"><i class="fa-solid fa-palette me-1"></i>Branding</button></li>
   <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-smtp"><i class="fa-solid fa-server me-1"></i>SMTP</button></li>
   <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-email"><i class="fa-solid fa-envelope me-1"></i>Email Template</button></li>
+  <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-local-ai">Local AI</button></li>
   <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-security"><i class="fa-solid fa-lock me-1"></i>Security</button></li>
   {% if session.get('role') == 'owner' %}
   <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-team"><i class="fa-solid fa-users me-1"></i>Team</button></li>
@@ -152,6 +153,42 @@
         <p class="text-muted small mt-3 mb-0">
           The drag-and-drop editor, merge tags, and a live preview using your real client data all live there — kept in one place so there's only one template to maintain.
         </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ Security ══ -->
+  <!-- ══ Local AI ══ -->
+  <div class="tab-pane fade" id="tab-local-ai">
+    <div class="row g-4">
+      <div class="col-lg-7">
+        <div class="card shadow-sm">
+          <div class="card-header"><div><div class="card-title">Local AI assistance</div><div class="card-caption">Draft and suggest only. Client data remains on this computer.</div></div></div>
+          <div class="card-body">
+            <div class="form-check form-switch mb-3">
+              <input class="form-check-input" type="checkbox" role="switch" id="localAiEnabled" name="local_ai_enabled" {{ 'checked' if cfg.local_ai_enabled }}>
+              <label class="form-check-label" for="localAiEnabled">Enable local AI assistance</label>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Installed local model</label>
+              <input class="form-control" name="local_ai_model" value="{{ cfg.local_ai_model }}" placeholder="For example: llama3.2:3b">
+              <div class="form-text">FinDesk connects only to Ollama on this computer at 127.0.0.1. Cloud AI endpoints cannot be configured here.</div>
+            </div>
+            <button type="submit" class="btn btn-primary">Save local AI settings</button>
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-5">
+        <div class="card shadow-sm h-100">
+          <div class="card-header"><div class="card-title">Connection check</div></div>
+          <div class="card-body">
+            <p class="text-muted">Check that the local AI runtime is available before enabling it for staff.</p>
+            <button class="btn btn-outline-secondary" type="button" id="checkLocalAiBtn">Check local AI</button>
+            <div id="localAiResult" class="mt-3" aria-live="polite"></div>
+            <hr>
+            <p class="small text-muted mb-0">AI can suggest spreadsheet mappings, summarize uploaded documents, and draft text. A person must review all results before they are saved or sent.</p>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -317,6 +354,29 @@ document.getElementById('testSmtpBtn')?.addEventListener('click', async () => {
   result.innerHTML = d.ok
     ? '<small class="text-success"><i class="fa-solid fa-check me-1"></i>Test email sent!</small>'
     : `<small class="text-danger"><i class="fa-solid fa-xmark me-1"></i>${d.error}</small>`;
+});
+
+// ── Local AI connection (loopback only; no client data is part of this check) ──
+document.getElementById('checkLocalAiBtn')?.addEventListener('click', async () => {
+  const button = document.getElementById('checkLocalAiBtn');
+  const result = document.getElementById('localAiResult');
+  button.disabled = true;
+  result.textContent = 'Checking this computer…';
+  try {
+    const response = await fetch('/local-ai/status');
+    const data = await response.json();
+    if (data.available) {
+      const models = data.models.length ? data.models.join(', ') : 'No models installed yet';
+      result.innerHTML = '<div class="alert alert-success py-2 mb-0"></div>';
+      result.firstElementChild.textContent = `Local AI is available. Models found: ${models}`;
+    } else {
+      result.innerHTML = '<div class="alert alert-warning py-2 mb-0">Local AI is not running. Install and start Ollama on this computer, then return here.</div>';
+    }
+  } catch (error) {
+    result.innerHTML = '<div class="alert alert-danger py-2 mb-0">FinDesk could not check the local AI service.</div>';
+  } finally {
+    button.disabled = false;
+  }
 });
 
 // ── Password toggle ───────────────────────────────────────────────────────────

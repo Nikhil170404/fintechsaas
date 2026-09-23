@@ -26,6 +26,7 @@ from modules.column_detector import ColumnDetector, ALIASES, FIELD_LABELS
 from modules.email_sender import EmailSender
 from modules.excel_reader import ExcelReader
 from modules.statement_builder import StatementBuilder
+from modules import local_ai
 
 load_dotenv()
 
@@ -110,9 +111,27 @@ def _tenant_dirs(tenant_id: int = None) -> dict:
     base = TENANTS_DIR / str(tid)
     uploads = base / "uploads"
     output  = base / "output"
+    documents = base / "documents"
     uploads.mkdir(parents=True, exist_ok=True)
     output.mkdir(parents=True, exist_ok=True)
-    return {"base": base, "uploads": uploads, "output": output}
+    documents.mkdir(parents=True, exist_ok=True)
+    return {"base": base, "uploads": uploads, "output": output, "documents": documents}
+
+def _client_documents_dir(tenant_id: int = None) -> Path:
+    path = _tenant_dirs(tenant_id)["documents"] / "clients"
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+def _safe_account_file_stem(account_no: str) -> str:
+    # Account numbers are application-controlled Excel values; normalize them
+    # before using them as a file name to prevent traversal and hidden files.
+    safe = re.sub(r"[^A-Za-z0-9._-]", "_", account_no).strip("._")
+    if not safe:
+        raise ValueError("Invalid client account number.")
+    return safe
+
+def _client_document_path(account_no: str) -> Path:
+    return _client_documents_dir() / f"{_safe_account_file_stem(account_no)}.pdf"
 
 def _template_path(tenant_id: int = None) -> Path:
     return _tenant_dirs(tenant_id)["uploads"] / "word_template.docx"
@@ -439,6 +458,10 @@ def _default_settings(company_name: str = None):
         "email_html":          _default_html_template(),
         "logo_filename":       "",
         "brand_color":         "#1E3A5F",
+        # AI is off until an owner explicitly enables it.  The endpoint is
+        # deliberately fixed in modules/local_ai.py to localhost only.
+        "local_ai_enabled":    False,
+        "local_ai_model":      "",
     }
 
 def _load_settings():
@@ -865,7 +888,11 @@ def clients():
     settings = _load_settings()
     return render_template("clients.html", clients=data,
                            has_template=_template_path().exists(),
-                           settings=settings)
+                           settings=settings,
+                           client_document_accounts={
+                               path.stem for path in _client_documents_dir().glob("*.pdf")
+                           },
+                           account_file_stem=_safe_account_file_stem)
 
 
 @app.route("/generate", methods=["POST"])
@@ -936,6 +963,7 @@ def send_emails():
     settings  = _load_settings()
     output_dir = _tenant_dirs()["output"]
     period    = request.form.get("statement_period", "")
+    attach_client_document = request.form.get("attach_client_document") == "1"
     subject_t = settings["email_subject"].replace("{{STATEMENT_PERIOD}}", period)
     sender    = EmailSender(settings["smtp_host"], settings["smtp_port"],
                             settings["smtp_user"], settings["smtp_pass"],
@@ -961,10 +989,17 @@ def send_emails():
             plain = _render_content(settings["email_body"], c, settings, period)
             html  = _render_content(settings["email_html"], c, settings, period) \
                     if settings.get("email_type") == "html" else None
+            attachments = [(pdf_path, f"Statement_{acct}.pdf")]
+            if attach_client_document:
+                client_pdf = _client_document_path(acct)
+                if not client_pdf.exists():
+                    results.append({"account": acct, "name": c["name"],
+                                    "status": "skipped", "reason": "Client PDF is required but missing"})
+                    continue
+                attachments.append((client_pdf, f"Client_document_{acct}.pdf"))
             sender.send(to_email=c["email"], to_name=c["name"],
                         subject=subject_t, body=plain, html_body=html,
-                        attachment_path=pdf_path,
-                        attachment_name=f"Statement_{acct}.pdf")
+                        attachments=attachments)
             results.append({"account": acct, "name": c["name"],
                             "status": "sent", "email": c["email"]})
             _audit("EMAIL_SENT", f"{c['name']} <{c['email']}> period={period}")
@@ -977,6 +1012,30 @@ def send_emails():
     activity["emails_sent"] = activity.get("emails_sent", 0) + sent_count
     _save_activity(activity)
     return jsonify({"results": results})
+
+
+@app.route("/client-documents/upload", methods=["POST"])
+@login_required
+def upload_client_document():
+    """Store one explicitly mapped client PDF inside the tenant's local folder."""
+    account_no = request.form.get("account_no", "").strip()
+    document = request.files.get("document")
+    known_accounts = {client.get("account_no") for client in _load_clients()}
+    if account_no not in known_accounts:
+        flash("Choose a client from the current imported data.", "danger")
+        return redirect(url_for("clients"))
+    if not document or not document.filename.lower().endswith(".pdf"):
+        flash("Upload a PDF document for the selected client.", "danger")
+        return redirect(url_for("clients"))
+    header = document.stream.read(5)
+    document.stream.seek(0)
+    if header != b"%PDF-":
+        flash("The uploaded file is not a valid PDF.", "danger")
+        return redirect(url_for("clients"))
+    document.save(_client_document_path(account_no))
+    _audit("CLIENT_DOCUMENT_UPLOADED", f"account={account_no}")
+    flash("Client PDF attached locally. It will be available in campaign review.", "success")
+    return redirect(url_for("clients"))
 
 
 @app.route("/upload-template", methods=["POST"])
@@ -1004,6 +1063,8 @@ def settings():
                     "email_body", "email_html"):
             if key in request.form:
                 cfg[key] = request.form[key]
+        cfg["local_ai_enabled"] = request.form.get("local_ai_enabled") == "on"
+        cfg["local_ai_model"] = request.form.get("local_ai_model", "").strip()
 
         # Username / password change apply to the logged-in user's own account
         new_user = request.form.get("admin_username", "").strip()
@@ -1034,6 +1095,41 @@ def settings():
 
     team = db.list_users_for_tenant(_tenant_id()) if session.get("role") == "owner" else []
     return render_template("settings.html", cfg=cfg, team=team)
+
+
+@app.route("/local-ai/status")
+@login_required
+def local_ai_status():
+    """Health check for the fixed loopback AI service; no client data is sent."""
+    return jsonify(local_ai.status())
+
+
+@app.route("/local-ai/draft", methods=["POST"])
+@login_required
+@limiter.limit("20 per minute")
+def local_ai_draft():
+    """Draft text only. It cannot send mail, alter financial records, or run tools."""
+    cfg = _load_settings()
+    if not cfg.get("local_ai_enabled") or not cfg.get("local_ai_model"):
+        return jsonify({"error": "Local AI is not enabled in Company settings."}), 403
+    data = request.get_json(silent=True) or {}
+    task = (data.get("task") or "").strip()
+    context = (data.get("context") or "").strip()
+    if not task or len(task) > 1_000 or len(context) > 20_000:
+        return jsonify({"error": "Enter a short task and a valid amount of local context."}), 400
+
+    prompt = (
+        "You are a writing assistant inside local financial software. "
+        "Return only a concise draft. Never send email, give investment advice, "
+        "change records, make compliance claims, or invent client data.\n\n"
+        f"Task: {task}\n\nContext:\n{context}"
+    )
+    try:
+        draft = local_ai.generate(cfg["local_ai_model"], prompt)
+    except local_ai.LocalAIError as exc:
+        return jsonify({"error": str(exc)}), 503
+    _audit("LOCAL_AI_DRAFT", "User requested a local AI draft")
+    return jsonify({"draft": draft})
 
 
 @app.route("/audit-log")

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{% block title %}FinTech SaaS{% endblock %}</title>
+  <title>{% block title %}FinDesk{% endblock %}</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -29,8 +29,8 @@
       <i class="fa-solid fa-chart-line"></i>
     </div>
     <div>
-      <div class="sidebar-name">FinTech SaaS</div>
-      <div class="sidebar-tagline">Finance &amp; Statements</div>
+      <div class="sidebar-name">FinDesk</div>
+      <div class="sidebar-tagline">Private finance workspace</div>
     </div>
   </a>
 
@@ -52,68 +52,68 @@
        class="sidebar-link {{ 'active' if request.endpoint == 'upload' }}"
        data-bs-toggle="tooltip" data-bs-placement="right" title="Upload client Excel file">
       <i class="nav-icon fa-solid fa-file-excel"></i>
-      <span>Upload Excel</span>
+      <span>Import data</span>
     </a>
 
     <a href="{{ url_for('clients') }}"
        class="sidebar-link {{ 'active' if request.endpoint == 'clients' }}"
        data-bs-toggle="tooltip" data-bs-placement="right" title="View clients, generate &amp; email PDFs">
       <i class="nav-icon fa-solid fa-users"></i>
-      <span>Clients &amp; Statements</span>
+      <span>Clients</span>
     </a>
 
     <div class="sidebar-divider"></div>
 
     <div class="nav-group">
-      <div class="nav-group-label">Generate PDFs</div>
+      <div class="nav-group-label">Finance</div>
     </div>
 
     <a href="{{ url_for('invoices') }}"
        class="sidebar-link {{ 'active' if request.endpoint == 'invoices' }}"
        data-bs-toggle="tooltip" data-bs-placement="right" title="Create GST-compliant invoices">
       <i class="nav-icon fa-solid fa-file-invoice-dollar"></i>
-      <span>Invoice Generator</span>
+      <span>Invoices</span>
     </a>
 
     <a href="{{ url_for('loans') }}"
        class="sidebar-link {{ 'active' if request.endpoint == 'loans' }}"
        data-bs-toggle="tooltip" data-bs-placement="right" title="EMI amortization schedule">
       <i class="nav-icon fa-solid fa-hand-holding-dollar"></i>
-      <span>Loan / EMI Schedule</span>
+      <span>Loan schedules</span>
     </a>
 
     <a href="{{ url_for('portfolio') }}"
        class="sidebar-link {{ 'active' if request.endpoint == 'portfolio' }}"
        data-bs-toggle="tooltip" data-bs-placement="right" title="Investment portfolio report">
       <i class="nav-icon fa-solid fa-chart-pie"></i>
-      <span>Portfolio Report</span>
+      <span>Portfolio reports</span>
     </a>
 
     <div class="sidebar-divider"></div>
 
     <div class="nav-group">
-      <div class="nav-group-label">Tools</div>
+      <div class="nav-group-label">Workspace</div>
     </div>
 
     <a href="{{ url_for('template_designer') }}"
        class="sidebar-link {{ 'active' if request.endpoint == 'template_designer' }}"
        data-bs-toggle="tooltip" data-bs-placement="right" title="Design custom document templates">
       <i class="nav-icon fa-solid fa-wand-magic-sparkles"></i>
-      <span>Template Designer</span>
+      <span>Templates</span>
     </a>
 
     <a href="{{ url_for('download_template') }}" target="_blank"
        class="sidebar-link"
        data-bs-toggle="tooltip" data-bs-placement="right" title="Download the sample Excel format">
       <i class="nav-icon fa-solid fa-file-arrow-down"></i>
-      <span>Sample Excel Template</span>
+      <span>Sample spreadsheet</span>
     </a>
 
     <a href="{{ url_for('settings') }}"
        class="sidebar-link {{ 'active' if request.endpoint == 'settings' }}"
        data-bs-toggle="tooltip" data-bs-placement="right" title="Branding, SMTP, security">
       <i class="nav-icon fa-solid fa-gear"></i>
-      <span>Settings</span>
+      <span>Company settings</span>
     </a>
 
   </nav>
