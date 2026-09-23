@@ -857,7 +857,8 @@ def wizard_template():
                 seen.add(tag)
 
     return render_template("wizard_template.html", cfg=cfg, editor_html=editor_html,
-                           clients=clients_list, merge_tags=all_tags)
+                           clients=clients_list, merge_tags=all_tags,
+                           has_template=_template_path().exists())
 
 
 @app.route("/wizard/template/preview", methods=["POST"])
@@ -877,6 +878,35 @@ def wizard_template_preview():
     return jsonify({"ok": True, "html": merged, "client": {
         "account_no": client["account_no"], "name": client["name"],
     }})
+
+
+@app.route("/pdf-template/preview", methods=["POST"])
+@login_required
+def pdf_template_preview():
+    """Render the currently uploaded PDF statement Word template as HTML —
+    optionally merged with a real client's data — so a company can see
+    exactly what it looks like without downloading and opening the file."""
+    path = _template_path()
+    if not path.exists():
+        return jsonify({"error": "No Word template uploaded — using Auto PDF."}), 404
+    try:
+        from modules.docx_import import docx_file_to_html
+        html = docx_file_to_html(path)
+    except Exception as exc:
+        return jsonify({"error": str(exc)}), 500
+
+    data = request.get_json(silent=True) or {}
+    account_no = data.get("account_no", "")
+    period = data.get("period", "August 2026")
+    clients_list = _load_clients()
+    client_info = None
+    if clients_list:
+        client = next((c for c in clients_list if c["account_no"] == account_no), clients_list[0])
+        settings = _load_settings()
+        html = _render_content(html, client, settings, period)
+        client_info = {"account_no": client["account_no"], "name": client["name"]}
+
+    return jsonify({"ok": True, "html": html, "client": client_info})
 
 
 # ── Clients + statements ───────────────────────────────────────────────────────
@@ -1041,13 +1071,27 @@ def upload_client_document():
 @app.route("/upload-template", methods=["POST"])
 @login_required
 def upload_template():
+    back = url_for("wizard_template") if request.form.get("from") == "wizard" else url_for("clients")
     f = request.files.get("word_template")
     if not f or not f.filename.lower().endswith(".docx"):
         flash("Please upload a .docx Word template.", "danger")
-        return redirect(url_for("clients"))
+        return redirect(back)
     f.save(_template_path())
-    flash("Word template uploaded successfully.", "success")
-    return redirect(url_for("clients"))
+    _audit("PDF_TEMPLATE_UPLOADED", f.filename)
+    flash("Word template uploaded — your PDFs will now be built from it.", "success")
+    return redirect(back)
+
+
+@app.route("/remove-template", methods=["POST"])
+@login_required
+def remove_template():
+    back = url_for("wizard_template") if request.form.get("from") == "wizard" else url_for("clients")
+    path = _template_path()
+    if path.exists():
+        path.unlink()
+        _audit("PDF_TEMPLATE_REMOVED")
+        flash("Word template removed — PDFs will use the built-in Auto layout again.", "success")
+    return redirect(back)
 
 
 # ── Settings ───────────────────────────────────────────────────────────────────

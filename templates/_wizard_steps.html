@@ -5,7 +5,7 @@
   {% set steps = [
     (1, 'fa-file-excel', 'Upload Excel', url_for('upload')),
     (2, 'fa-list-check', 'Map Columns', url_for('map_columns')),
-    (3, 'fa-wand-magic-sparkles', 'Design Email', url_for('wizard_template')),
+    (3, 'fa-wand-magic-sparkles', 'Design Templates', url_for('wizard_template')),
     (4, 'fa-paper-plane', 'Review & Send', url_for('clients')),
   ] %}
   {% for num, icon, label, href in steps %}

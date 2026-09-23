@@ -142,26 +142,20 @@
   </div>
 </div>
 
-<!-- Word template upload -->
+<!-- PDF statement template summary -->
 <div class="card shadow-sm mb-4">
-  <div class="card-header fw-semibold">
-    <i class="fa-solid fa-file-word text-primary me-2"></i>Word Template (Optional)
+  <div class="card-header fw-semibold d-flex align-items-center justify-content-between flex-wrap gap-2">
+    <span><i class="fa-solid fa-file-pdf text-danger me-2"></i>PDF Statement Template</span>
+    <a href="{{ url_for('wizard_template') }}" class="btn btn-outline-secondary btn-sm">
+      <i class="fa-solid fa-pen-to-square me-1"></i>Manage Template
+    </a>
   </div>
   <div class="card-body">
-    <p class="text-muted small mb-3">
-      Upload a <code>.docx</code> template with placeholders like <code>&#123;&#123;CLIENT_NAME&#125;&#125;</code>,
-      <code>&#123;&#123;ACCOUNT_NO&#125;&#125;</code>, <code>&#123;&#123;TOTAL_DEBIT&#125;&#125;</code> etc.
-      Add a table with headers <strong>Date | Description | Reference | Debit | Credit | Balance</strong>
-      and the system will fill in your transactions automatically.
-      {% if has_template %}
-        <span class="badge bg-success ms-2"><i class="fa-solid fa-check me-1"></i>Template uploaded</span>
-      {% endif %}
+    <p class="text-muted small mb-0">
+      Using: <strong>{{ 'Your Word Template' if has_template else 'Auto PDF (built-in layout)' }}</strong>
+      {% if has_template %}<span class="badge bg-success ms-2"><i class="fa-solid fa-check me-1"></i>Custom template active</span>{% endif %}
+      — upload or change it in the Design Templates step alongside your email template.
     </p>
-    <form method="POST" action="{{ url_for('upload_template') }}" enctype="multipart/form-data" class="d-flex gap-2">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <input type="file" name="word_template" class="form-control form-control-sm" accept=".docx" required style="max-width:320px">
-      <button class="btn btn-primary btn-sm">Upload Template</button>
-    </form>
   </div>
 </div>
 
