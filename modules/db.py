@@ -85,6 +85,14 @@ def init_db():
         conn.close()
 
 
+def get_tenant(tenant_id: int):
+    conn = _connect()
+    try:
+        return conn.execute("SELECT * FROM tenants WHERE id = ?", (tenant_id,)).fetchone()
+    finally:
+        conn.close()
+
+
 def tenant_count() -> int:
     conn = _connect()
     try:

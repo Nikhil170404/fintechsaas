@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block title %}Billing & Plan{% endblock %}
+{% block content %}
+<div class="container py-4">
+  <h2 class="mb-4">Billing &amp; Subscription</h2>
+
+  <!-- Current Plan Banner -->
+  <div class="card mb-4 border-primary">
+    <div class="card-body d-flex align-items-center justify-content-between">
+      <div>
+        <span class="badge bg-primary fs-6 me-2">{{ plans[current_plan].name }} Plan</span>
+        {% if sub.status == 'trial' %}
+          <span class="badge bg-warning text-dark">
+            Trial — {{ ((sub.trial_ends_at - now) / 86400) | int }} days left
+          </span>
+        {% elif sub.status == 'active' %}
+          <span class="badge bg-success">Active</span>
+        {% elif sub.status == 'cancelled' %}
+          <span class="badge bg-danger">Cancelled</span>
+        {% endif %}
+      </div>
+      {% if current_plan != 'enterprise' %}
+      <a href="#plans" class="btn btn-outline-primary btn-sm">Upgrade Plan</a>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Usage Summary -->
+  <div class="card mb-4">
+    <div class="card-header fw-semibold">Usage This Month ({{ usage.month }})</div>
+    <div class="card-body">
+      <div class="row g-3">
+        {% for key, stat in usage.usage.items() %}
+        <div class="col-md-4">
+          <div class="d-flex justify-content-between small text-muted mb-1">
+            <span>{{ key.replace('_', ' ').title() }}</span>
+            <span>
+              {% if stat.unlimited %}Unlimited
+              {% else %}{{ stat.used }} / {{ stat.limit }}{% endif %}
+            </span>
+          </div>
+          {% if not stat.unlimited %}
+          <div class="progress" style="height:6px">
+            <div class="progress-bar {% if stat.pct > 80 %}bg-danger{% elif stat.pct > 60 %}bg-warning{% else %}bg-success{% endif %}"
+                 style="width:{{ stat.pct }}%"></div>
+          </div>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Plan Cards -->
+  <h4 id="plans" class="mb-3">Choose a Plan</h4>
+  <div class="row g-3">
+    {% for plan_id, plan in plans.items() %}
+    <div class="col-md-3">
+      <div class="card h-100 {% if plan_id == current_plan %}border-primary{% endif %}">
+        <div class="card-body d-flex flex-column">
+          <h5 class="card-title">{{ plan.name }}
+            {% if plan_id == current_plan %}
+            <span class="badge bg-primary ms-1" style="font-size:0.65rem">Current</span>
+            {% endif %}
+          </h5>
+          <div class="display-6 fw-bold mb-3">
+            {% if plan.price_inr == 0 %}Free
+            {% else %}₹{{ plan.price_inr | int }}<small class="fs-6 fw-normal">/mo</small>
+            {% endif %}
+          </div>
+          <ul class="list-unstyled small flex-grow-1">
+            {% for f in plan.features %}
+            <li class="mb-1"><span class="text-success me-1">✓</span>{{ f }}</li>
+            {% endfor %}
+          </ul>
+          {% if plan_id != current_plan %}
+          <form method="POST" action="{{ url_for('billing.upgrade', plan=plan_id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-primary btn-sm w-100 mt-3">
+              {% if plan.price_inr == 0 %}Downgrade{% else %}Upgrade to {{ plan.name }}{% endif %}
+            </button>
+          </form>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  {% if sub.status == 'active' and current_plan != 'free' %}
+  <div class="mt-4 text-end">
+    <form method="POST" action="{{ url_for('billing.cancel') }}"
+          onsubmit="return confirm('Cancel subscription? You keep access until period end.')">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button class="btn btn-outline-danger btn-sm">Cancel Subscription</button>
+    </form>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
