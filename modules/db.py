@@ -1,9 +1,20 @@
 import json
 import sqlite3
 import time
+from contextlib import contextmanager
 from pathlib import Path
 
 DB_PATH = Path("data") / "app.db"
+
+
+@contextmanager
+def get_db():
+    """Context manager that yields a connection and always closes it."""
+    conn = _connect()
+    try:
+        yield conn
+    finally:
+        conn.close()
 
 
 def _connect() -> sqlite3.Connection:
@@ -315,12 +326,30 @@ def set_settings_blob(tenant_id: int, data: dict):
     _set_blob("settings", tenant_id, data)
 
 
+def get_settings(tenant_id: int):
+    """Return raw sqlite3.Row with 'json' column (used by api_routes)."""
+    conn = _connect()
+    try:
+        return conn.execute("SELECT json FROM settings WHERE tenant_id = ?", (tenant_id,)).fetchone()
+    finally:
+        conn.close()
+
+
 def get_clients_blob(tenant_id: int):
     return _get_blob("clients", tenant_id)
 
 
 def set_clients_blob(tenant_id: int, data: list):
     _set_blob("clients", tenant_id, data)
+
+
+def get_clients(tenant_id: int):
+    """Return raw sqlite3.Row with 'json' column (used by api_routes)."""
+    conn = _connect()
+    try:
+        return conn.execute("SELECT json FROM clients WHERE tenant_id = ?", (tenant_id,)).fetchone()
+    finally:
+        conn.close()
 
 
 def get_mapping_blob(tenant_id: int):

@@ -103,21 +103,15 @@ def _tenant_dir(tenant_id: int) -> Path:
 
 
 def _load_settings(tenant_id: int) -> dict:
-    row = db.get_settings(tenant_id)
-    if not row:
-        return {}
     try:
-        return json.loads(row["json"]) if isinstance(row, dict) else {}
+        return db.get_settings_blob(tenant_id) or {}
     except Exception:
         return {}
 
 
 def _load_clients(tenant_id: int) -> list:
-    row = db.get_clients(tenant_id)
-    if not row:
-        return []
     try:
-        return json.loads(row["json"]) if isinstance(row, dict) else []
+        return db.get_clients_blob(tenant_id) or []
     except Exception:
         return []
 
@@ -254,15 +248,7 @@ def update_settings():
     for key in ("smtp_password", "smtp_pass"):
         data.pop(key, None)
     current.update(data)
-    row = db.get_settings(tenant_id)
-    if row:
-        with db.get_db() as conn:
-            conn.execute("UPDATE settings SET json = ? WHERE tenant_id = ?", (json.dumps(current), tenant_id))
-            conn.commit()
-    else:
-        with db.get_db() as conn:
-            conn.execute("INSERT INTO settings (tenant_id, json) VALUES (?, ?)", (tenant_id, json.dumps(current)))
-            conn.commit()
+    db.set_settings_blob(tenant_id, current)
     return jsonify({"message": "Settings updated"})
 
 
@@ -289,14 +275,7 @@ def update_smtp():
         "smtp_password": encrypted_pw,
         "smtp_use_tls": data.get("smtp_use_tls", True),
     })
-
-    with db.get_db() as conn:
-        existing = conn.execute("SELECT tenant_id FROM settings WHERE tenant_id = ?", (tenant_id,)).fetchone()
-        if existing:
-            conn.execute("UPDATE settings SET json = ? WHERE tenant_id = ?", (json.dumps(current), tenant_id))
-        else:
-            conn.execute("INSERT INTO settings (tenant_id, json) VALUES (?, ?)", (tenant_id, json.dumps(current)))
-        conn.commit()
+    db.set_settings_blob(tenant_id, current)
     return jsonify({"message": "SMTP settings updated"})
 
 
@@ -333,14 +312,7 @@ def save_integration(name: str):
     integrations = settings.get("integrations", {})
     integrations[name] = {**integrations.get(name, {}), **data}
     settings["integrations"] = integrations
-
-    with db.get_db() as conn:
-        existing = conn.execute("SELECT tenant_id FROM settings WHERE tenant_id = ?", (tenant_id,)).fetchone()
-        if existing:
-            conn.execute("UPDATE settings SET json = ? WHERE tenant_id = ?", (json.dumps(settings), tenant_id))
-        else:
-            conn.execute("INSERT INTO settings (tenant_id, json) VALUES (?, ?)", (tenant_id, json.dumps(settings)))
-        conn.commit()
+    db.set_settings_blob(tenant_id, settings)
     return jsonify({"message": f"{name} integration saved"})
 
 
@@ -350,9 +322,7 @@ def remove_integration(name: str):
     tenant_id = request.api_tenant_id
     settings = _load_settings(tenant_id)
     settings.get("integrations", {}).pop(name, None)
-    with db.get_db() as conn:
-        conn.execute("UPDATE settings SET json = ? WHERE tenant_id = ?", (json.dumps(settings), tenant_id))
-        conn.commit()
+    db.set_settings_blob(tenant_id, settings)
     return jsonify({"message": f"{name} integration removed"})
 
 
@@ -384,11 +354,7 @@ def zoho_oauth_callback():
     zoho_cfg["refresh_token"] = tokens.get("refresh_token", "")
     zoho_cfg["token_expiry"] = int(time.time()) + tokens.get("expires_in", 3600)
     settings.setdefault("integrations", {})["zoho"] = zoho_cfg
-
-    with db.get_db() as conn:
-        conn.execute("UPDATE settings SET json = ? WHERE tenant_id = ?", (json.dumps(settings), tenant_id))
-        conn.commit()
-
+    db.set_settings_blob(tenant_id, settings)
     return "<h3>Zoho connected successfully. You can close this window.</h3>"
 
 
@@ -416,11 +382,7 @@ def google_oauth_callback():
     google_cfg["refresh_token"] = tokens.get("refresh_token", "")
     google_cfg["token_expiry"] = int(time.time()) + tokens.get("expires_in", 3600)
     settings.setdefault("integrations", {})["gmail"] = google_cfg
-
-    with db.get_db() as conn:
-        conn.execute("UPDATE settings SET json = ? WHERE tenant_id = ?", (json.dumps(settings), tenant_id))
-        conn.commit()
-
+    db.set_settings_blob(tenant_id, settings)
     return "<h3>Gmail connected successfully. You can close this window.</h3>"
 
 
@@ -448,11 +410,7 @@ def microsoft_oauth_callback():
     ms_cfg["refresh_token"] = tokens.get("refresh_token", "")
     ms_cfg["token_expiry"] = int(time.time()) + tokens.get("expires_in", 3600)
     settings.setdefault("integrations", {})["microsoft"] = ms_cfg
-
-    with db.get_db() as conn:
-        conn.execute("UPDATE settings SET json = ? WHERE tenant_id = ?", (json.dumps(settings), tenant_id))
-        conn.commit()
-
+    db.set_settings_blob(tenant_id, settings)
     return "<h3>Microsoft 365 connected successfully. You can close this window.</h3>"
 
 
@@ -639,25 +597,33 @@ def send_email():
             from modules.email_sender import EmailSender
             from cryptography.fernet import Fernet
             from config import Config
-            fernet = Fernet(Config.ENCRYPTION_KEY.encode() if len(Config.ENCRYPTION_KEY) == 44 else Fernet.generate_key())
+            fernet = Fernet(Config.ENCRYPTION_KEY.encode() if len(Config.ENCRYPTION_KEY) == 44
+                            else Fernet.generate_key())
             smtp_pass = ""
             try:
                 smtp_pass = fernet.decrypt(settings.get("smtp_password", "").encode()).decode()
             except Exception:
                 pass
+            company = settings.get("company_name", "FinTech Desk")
             sender_obj = EmailSender(
                 host=settings.get("smtp_host", ""),
                 port=int(settings.get("smtp_port", 587)),
                 username=settings.get("smtp_user", ""),
                 password=smtp_pass,
-                use_tls=settings.get("smtp_use_tls", True),
+                sender_name=company,
             )
-            sender_obj.send(
-                to=to,
-                subject=subject,
-                html_body=body,
-                attachments=attachment_paths,
-            )
+            att_pairs = [(p, None) for p in attachment_paths]
+            for recipient in (to if isinstance(to, list) else [to]):
+                name = recipient if isinstance(recipient, str) else recipient.get("name", "")
+                email_addr = recipient if isinstance(recipient, str) else recipient.get("email", "")
+                sender_obj.send(
+                    to_email=email_addr,
+                    to_name=name,
+                    subject=subject,
+                    body=body,
+                    html_body=body,
+                    attachments=att_pairs,
+                )
 
         return jsonify({"message": "Email sent successfully", "recipients": len(to)})
 
@@ -673,9 +639,7 @@ def _maybe_refresh_gmail(cfg: dict, tenant_id: int, settings: dict) -> None:
         cfg["access_token"] = tokens.get("access_token", "")
         cfg["token_expiry"] = int(time.time()) + tokens.get("expires_in", 3600)
         settings.setdefault("integrations", {})["gmail"] = cfg
-        with db.get_db() as conn:
-            conn.execute("UPDATE settings SET json = ? WHERE tenant_id = ?", (json.dumps(settings), tenant_id))
-            conn.commit()
+        db.set_settings_blob(tenant_id, settings)
 
 
 def _maybe_refresh_microsoft(cfg: dict, tenant_id: int, settings: dict) -> None:
@@ -686,9 +650,7 @@ def _maybe_refresh_microsoft(cfg: dict, tenant_id: int, settings: dict) -> None:
         cfg["access_token"] = tokens.get("access_token", "")
         cfg["token_expiry"] = int(time.time()) + tokens.get("expires_in", 3600)
         settings.setdefault("integrations", {})["microsoft"] = cfg
-        with db.get_db() as conn:
-            conn.execute("UPDATE settings SET json = ? WHERE tenant_id = ?", (json.dumps(settings), tenant_id))
-            conn.commit()
+        db.set_settings_blob(tenant_id, settings)
 
 
 # ── Send via WhatsApp ──────────────────────────────────────────────────────────
@@ -777,8 +739,9 @@ def add_team_member():
     try:
         with db.get_db() as conn:
             conn.execute(
-                "INSERT INTO users (tenant_id, username, email, password_hash, role, is_active) VALUES (?,?,?,?,?,1)",
-                (tenant_id, username, email, pw_hash, role),
+                "INSERT INTO users (tenant_id, username, email, password_hash, role, is_active, created_at) "
+                "VALUES (?,?,?,?,?,1,?)",
+                (tenant_id, username, email, pw_hash, role, int(time.time())),
             )
             conn.commit()
         return jsonify({"message": "Team member added"}), 201
@@ -867,4 +830,5 @@ def razorpay_create_link():
 
 @api.route("/health", methods=["GET"])
 def health():
-    return jsonify({"status": "ok", "version": "1.0.0"})
+    from modules.monitoring import health_status
+    return jsonify(health_status())
