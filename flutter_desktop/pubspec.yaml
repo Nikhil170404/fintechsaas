@@ -1,0 +1,101 @@
+name: fintech_desk
+description: FinTech SaaS Desktop — Financial documents, CRM and multi-channel delivery for Indian financial services.
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.2.0 <4.0.0'
+  flutter: '>=3.16.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # HTTP & networking
+  dio: ^5.4.1
+  http: ^1.2.0
+
+  # State management
+  provider: ^6.1.2
+  riverpod: ^2.4.10
+  flutter_riverpod: ^2.4.10
+
+  # Secure storage & preferences
+  flutter_secure_storage: ^9.0.0
+  shared_preferences: ^2.2.2
+
+  # File operations
+  file_picker: ^8.0.3
+  path_provider: ^2.1.2
+  path: ^1.9.0
+
+  # PDF & document viewing
+  open_filex: ^4.3.4
+  syncfusion_flutter_pdfviewer: ^24.2.9
+
+  # UI & design
+  google_fonts: ^6.2.1
+  flutter_svg: ^2.0.10+1
+  cached_network_image: ^3.3.1
+  shimmer: ^3.0.0
+
+  # Charts & analytics
+  fl_chart: ^0.67.0
+  syncfusion_flutter_charts: ^24.2.9
+
+  # Data tables
+  data_table_2: ^2.5.12
+  pluto_grid: ^8.3.0
+
+  # Date & formatting
+  intl: ^0.19.0
+  timeago: ^3.6.1
+
+  # URL launcher (for OAuth flows in browser)
+  url_launcher: ^6.3.0
+
+  # Desktop window management
+  window_manager: ^0.3.8
+  bitsdojo_window: ^0.1.6
+
+  # Drag and drop
+  desktop_drop: ^0.4.4
+
+  # Image handling
+  image_picker: ^1.0.7
+
+  # Notifications
+  flutter_local_notifications: ^17.1.2
+
+  # Misc utilities
+  uuid: ^4.3.3
+  logger: ^2.2.0
+  equatable: ^2.0.5
+  json_annotation: ^4.9.0
+  freezed_annotation: ^2.4.1
+  dartz: ^0.10.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.2
+  build_runner: ^2.4.8
+  json_serializable: ^6.7.1
+  freezed: ^2.4.6
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/
+    - assets/icons/
+    - assets/fonts/
+  fonts:
+    - family: Inter
+      fonts:
+        - asset: assets/fonts/Inter-Regular.ttf
+        - asset: assets/fonts/Inter-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Inter-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/Inter-Bold.ttf
+          weight: 700

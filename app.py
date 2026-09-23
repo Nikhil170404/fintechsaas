@@ -27,6 +27,7 @@ from modules.email_sender import EmailSender
 from modules.excel_reader import ExcelReader
 from modules.statement_builder import StatementBuilder
 from modules import local_ai
+from modules.api_routes import api as api_blueprint
 
 load_dotenv()
 
@@ -65,6 +66,11 @@ app.config.update(
 
 csrf    = CSRFProtect(app)
 limiter = Limiter(get_remote_address, app=app, default_limits=[], storage_uri="memory://")
+
+# ── REST API blueprint (used by Flutter desktop app) ──────────────────────────
+app.register_blueprint(api_blueprint)
+# Exempt API routes from CSRF (they use Bearer tokens instead)
+csrf.exempt(api_blueprint)
 
 # ── Security headers on every response ────────────────────────────────────────
 @app.after_request
